@@ -3,401 +3,203 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Singing Letter Piano</title>
+<title>Clear Singing Letter Piano</title>
 <style>
-    body {
-        margin: 0;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        background: #f0f4f8;
-        font-family: system-ui, -apple-system, sans-serif;
-    }
-    #app-container {
-        text-align: center;
-        background: white;
-        padding: 30px;
-        border-radius: 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,.05);
-    }
-    .status-message {
-        margin-bottom: 10px;
-        color: #4b5563;
-        font-size: 1.1rem;
-        font-weight: 650;
-    }
-    .voice-toggle {
-        appearance: none;
-        border: 0;
-        border-radius: 999px;
-        padding: 8px 14px;
-        margin-bottom: 8px;
-        background: #e8f5e9;
-        color: #166534;
-        font: inherit;
-        font-weight: 750;
-        cursor: pointer;
-        box-shadow: inset 0 0 0 1px rgba(22,101,52,.16);
-    }
-    .voice-toggle[aria-pressed="false"] {
-        background: #f3f4f6;
-        color: #6b7280;
-        box-shadow: inset 0 0 0 1px rgba(107,114,128,.18);
-    }
-    .keyboard-wrapper {
-        position: relative;
-        margin-top: 20px;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-    svg { filter: drop-shadow(0 4px 6px rgba(0,0,0,.05)); }
-    .key {
-        cursor: pointer;
-        stroke-width: 1px;
-        transition: filter .05s ease;
-    }
-    .key-C { fill:#FF4A4A; stroke:#c92a2a; }
-    .key-D { fill:#FF922B; stroke:#d9480f; }
-    .key-E { fill:#FCC419; stroke:#e67700; }
-    .key-F { fill:#51CF66; stroke:#2b8a3e; }
-    .key-G { fill:#37B24D; stroke:#2b8a3e; }
-    .key-A { fill:#339AF0; stroke:#1864ab; }
-    .key-B { fill:#845EF7; stroke:#5f3dc4; }
-    .white-key.active { filter: brightness(.80); }
-    .black-key { fill:#343A40; stroke:#212529; }
-    .black-key.active { fill:#596169; }
-    .note-label {
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity .02s linear;
-        font-weight: 850;
-        text-anchor: middle;
-        dominant-baseline: middle;
-    }
-    .note-label.visible { opacity: 1; }
-    .white-note-label { fill:#111827; font-size:28px; }
-    .black-note-label { fill:#fff; font-size:17px; }
+body{margin:0;padding:20px;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:system-ui,-apple-system,sans-serif}
+#app-container{text-align:center;background:#fff;padding:30px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.status-message{margin-bottom:10px;color:#4b5563;font-size:1.1rem;font-weight:650;min-height:1.4em}
+.voice-toggle{appearance:none;border:0;border-radius:999px;padding:8px 14px;margin-bottom:8px;background:#e8f5e9;color:#166534;font:inherit;font-weight:750;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(22,101,52,.16)}
+.voice-toggle[aria-pressed="false"]{background:#f3f4f6;color:#6b7280;box-shadow:inset 0 0 0 1px rgba(107,114,128,.18)}
+.keyboard-wrapper{position:relative;margin-top:20px;user-select:none;-webkit-user-select:none}
+svg{filter:drop-shadow(0 4px 6px rgba(0,0,0,.05));touch-action:none}
+.key{cursor:pointer;stroke-width:1px;transition:filter .05s ease}
+.key-C{fill:#FF4A4A;stroke:#c92a2a}.key-D{fill:#FF922B;stroke:#d9480f}.key-E{fill:#FCC419;stroke:#e67700}.key-F{fill:#51CF66;stroke:#2b8a3e}.key-G{fill:#37B24D;stroke:#2b8a3e}.key-A{fill:#339AF0;stroke:#1864ab}.key-B{fill:#845EF7;stroke:#5f3dc4}
+.white-key.active{filter:brightness(.80)}.black-key{fill:#343A40;stroke:#212529}.black-key.active{fill:#596169}
+.note-label{pointer-events:none;opacity:0;transition:opacity .02s linear;font-weight:850;text-anchor:middle;dominant-baseline:middle}.note-label.visible{opacity:1}.white-note-label{fill:#111827;font-size:28px}.black-note-label{fill:#fff;font-size:17px}
 </style>
 </head>
 <body>
 <div id="app-container">
-    <div id="status" class="status-message">Tap a key. The voice sings the complete note name at that exact pitch.</div>
-    <button id="voice-toggle" class="voice-toggle" type="button" aria-pressed="true">Singing: On</button>
-    <div class="keyboard-wrapper">
-        <svg width="480" height="230" viewBox="0 0 480 230" id="piano-svg">
-            <g class="white-keys-group">
-                <rect id="key-C4" class="key white-key key-C" x="0" y="0" width="60" height="220" rx="6" />
-                <rect id="key-D4" class="key white-key key-D" x="60" y="0" width="60" height="220" rx="6" />
-                <rect id="key-E4" class="key white-key key-E" x="120" y="0" width="60" height="220" rx="6" />
-                <rect id="key-F4" class="key white-key key-F" x="180" y="0" width="60" height="220" rx="6" />
-                <rect id="key-G4" class="key white-key key-G" x="240" y="0" width="60" height="220" rx="6" />
-                <rect id="key-A4" class="key white-key key-A" x="300" y="0" width="60" height="220" rx="6" />
-                <rect id="key-B4" class="key white-key key-B" x="360" y="0" width="60" height="220" rx="6" />
-                <rect id="key-C5" class="key white-key key-C" x="420" y="0" width="60" height="220" rx="6" />
-            </g>
-            <g class="black-keys-group">
-                <rect id="key-Db4" class="key black-key" x="42" y="0" width="36" height="130" rx="4" />
-                <rect id="key-Eb4" class="key black-key" x="102" y="0" width="36" height="130" rx="4" />
-                <rect id="key-Gb4" class="key black-key" x="222" y="0" width="36" height="130" rx="4" />
-                <rect id="key-Ab4" class="key black-key" x="282" y="0" width="36" height="130" rx="4" />
-                <rect id="key-Bb4" class="key black-key" x="342" y="0" width="36" height="130" rx="4" />
-            </g>
-        </svg>
-    </div>
+<div id="status" class="status-message">Tap a key. You will hear the note and its complete name.</div>
+<button id="voice-toggle" class="voice-toggle" type="button" aria-pressed="true">Singing: On</button>
+<div class="keyboard-wrapper">
+<svg width="480" height="230" viewBox="0 0 480 230" id="piano-svg">
+<g class="white-keys-group">
+<rect id="key-C4" class="key white-key key-C" x="0" y="0" width="60" height="220" rx="6"/>
+<rect id="key-D4" class="key white-key key-D" x="60" y="0" width="60" height="220" rx="6"/>
+<rect id="key-E4" class="key white-key key-E" x="120" y="0" width="60" height="220" rx="6"/>
+<rect id="key-F4" class="key white-key key-F" x="180" y="0" width="60" height="220" rx="6"/>
+<rect id="key-G4" class="key white-key key-G" x="240" y="0" width="60" height="220" rx="6"/>
+<rect id="key-A4" class="key white-key key-A" x="300" y="0" width="60" height="220" rx="6"/>
+<rect id="key-B4" class="key white-key key-B" x="360" y="0" width="60" height="220" rx="6"/>
+<rect id="key-C5" class="key white-key key-C" x="420" y="0" width="60" height="220" rx="6"/>
+</g>
+<g class="black-keys-group">
+<rect id="key-Db4" class="key black-key" x="42" y="0" width="36" height="130" rx="4"/>
+<rect id="key-Eb4" class="key black-key" x="102" y="0" width="36" height="130" rx="4"/>
+<rect id="key-Gb4" class="key black-key" x="222" y="0" width="36" height="130" rx="4"/>
+<rect id="key-Ab4" class="key black-key" x="282" y="0" width="36" height="130" rx="4"/>
+<rect id="key-Bb4" class="key black-key" x="342" y="0" width="36" height="130" rx="4"/>
+</g>
+</svg>
+</div>
 </div>
 <script>
-const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
-let voiceEnabled = true;
-let activePhrase = null;
-let activeTimer = null;
-let noiseBuffer = null;
+const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null;
+let singingOn=true;
+let selectedVoice=null;
+let activeSound=null;
+let activeTimer=null;
+let speechToken=0;
 
-const noteConfig = {
-    'key-C4':  { frequency:261.63, letter:'C', flat:false, label:'C' },
-    'key-Db4': { frequency:277.18, letter:'D', flat:true,  label:'D♭' },
-    'key-D4':  { frequency:293.66, letter:'D', flat:false, label:'D' },
-    'key-Eb4': { frequency:311.13, letter:'E', flat:true,  label:'E♭' },
-    'key-E4':  { frequency:329.63, letter:'E', flat:false, label:'E' },
-    'key-F4':  { frequency:349.23, letter:'F', flat:false, label:'F' },
-    'key-Gb4': { frequency:369.99, letter:'G', flat:true,  label:'G♭' },
-    'key-G4':  { frequency:392.00, letter:'G', flat:false, label:'G' },
-    'key-Ab4': { frequency:415.30, letter:'A', flat:true,  label:'A♭' },
-    'key-A4':  { frequency:440.00, letter:'A', flat:false, label:'A' },
-    'key-Bb4': { frequency:466.16, letter:'B', flat:true,  label:'B♭' },
-    'key-B4':  { frequency:493.88, letter:'B', flat:false, label:'B' },
-    'key-C5':  { frequency:523.25, letter:'C', flat:false, label:'C' }
+const notes={
+'key-C4':{frequency:261.63,label:'C',speech:'see',display:'C',flat:false},
+'key-Db4':{frequency:277.18,label:'D♭',speech:'dee flat',display:'D flat',flat:true},
+'key-D4':{frequency:293.66,label:'D',speech:'dee',display:'D',flat:false},
+'key-Eb4':{frequency:311.13,label:'E♭',speech:'ee flat',display:'E flat',flat:true},
+'key-E4':{frequency:329.63,label:'E',speech:'ee',display:'E',flat:false},
+'key-F4':{frequency:349.23,label:'F',speech:'eff',display:'F',flat:false},
+'key-Gb4':{frequency:369.99,label:'G♭',speech:'gee flat',display:'G flat',flat:true},
+'key-G4':{frequency:392.00,label:'G',speech:'gee',display:'G',flat:false},
+'key-Ab4':{frequency:415.30,label:'A♭',speech:'ay flat',display:'A flat',flat:true},
+'key-A4':{frequency:440.00,label:'A',speech:'ay',display:'A',flat:false},
+'key-Bb4':{frequency:466.16,label:'B♭',speech:'bee flat',display:'B flat',flat:true},
+'key-B4':{frequency:493.88,label:'B',speech:'bee',display:'B',flat:false},
+'key-C5':{frequency:523.25,label:'C',speech:'see',display:'C',flat:false}
 };
 
-const vowels = {
-    ee: { f1:300, f2:2300, f3:3000 },
-    eh: { f1:530, f2:1850, f3:2500 },
-    ae: { f1:700, f2:1700, f3:2500 },
-    l:  { f1:400, f2:1200, f3:2600 }
-};
+function chooseVoice(){
+ if(!('speechSynthesis' in window))return;
+ const voices=window.speechSynthesis.getVoices();
+ const preferred=[/Microsoft Aria/i,/Microsoft Jenny/i,/Google US English/i,/Samantha/i,/Zira/i,/female/i,/English.*United States/i,/en-US/i];
+ for(const pattern of preferred){const found=voices.find(v=>pattern.test(v.name)||pattern.test(v.lang));if(found){selectedVoice=found;break}}
+ if(!selectedVoice)selectedVoice=voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
+}
+if('speechSynthesis' in window){chooseVoice();window.speechSynthesis.onvoiceschanged=chooseVoice}
 
-function ensureAudio() {
-    if (!audioCtx) {
-        audioCtx = new AudioContextClass();
-        noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
-        const data = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
-    }
-    if (audioCtx.state === 'suspended') return audioCtx.resume();
-    return Promise.resolve();
+function ensureAudio(){
+ if(!audioCtx)audioCtx=new AudioContextClass();
+ return audioCtx.state==='suspended'?audioCtx.resume():Promise.resolve();
 }
 
-function remember(node) {
-    if (activePhrase) activePhrase.nodes.push(node);
-    return node;
+function stopAudio(){
+ if(activeTimer){clearTimeout(activeTimer);activeTimer=null}
+ if(activeSound){
+  const now=audioCtx?audioCtx.currentTime:0;
+  try{activeSound.gain.gain.cancelScheduledValues(now);activeSound.gain.gain.setValueAtTime(Math.max(.0001,activeSound.gain.gain.value),now);activeSound.gain.gain.exponentialRampToValueAtTime(.0001,now+.015)}catch(_){ }
+  activeSound.oscillators.forEach(o=>{try{o.stop(now+.02)}catch(_){}});
+  activeSound=null;
+ }
+ document.querySelectorAll('.key.active').forEach(k=>k.classList.remove('active'));
+ document.querySelectorAll('.note-label.visible').forEach(l=>l.classList.remove('visible'));
 }
 
-function envelope(gain, start, duration, level, attack=.006, release=.035) {
-    const end = start + duration;
-    gain.gain.cancelScheduledValues(start);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(.0002, level), start + attack);
-    gain.gain.setValueAtTime(Math.max(.0002, level), Math.max(start + attack, end - release));
-    gain.gain.exponentialRampToValueAtTime(.0001, end);
+function stopEverything(){
+ speechToken+=1;
+ if('speechSynthesis' in window)window.speechSynthesis.cancel();
+ stopAudio();
 }
 
-function scheduleNoise(master, start, duration, center, q, level, highpass=0) {
-    const source = remember(audioCtx.createBufferSource());
-    source.buffer = noiseBuffer;
-    source.loop = true;
-    let previous = source;
-    if (highpass) {
-        const hp = audioCtx.createBiquadFilter();
-        hp.type = 'highpass';
-        hp.frequency.value = highpass;
-        previous.connect(hp);
-        previous = hp;
-    }
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = center;
-    filter.Q.value = q;
-    const gain = audioCtx.createGain();
-    envelope(gain, start, duration, level, .003, Math.min(.025, duration / 3));
-    previous.connect(filter);
-    filter.connect(gain);
-    gain.connect(master);
-    source.start(start);
-    source.stop(start + duration + .01);
+function showKey(noteId,durationMs){
+ const key=document.getElementById(noteId);
+ const label=document.getElementById(`label-${noteId}`);
+ key.classList.add('active');
+ label.classList.add('visible');
+ activeTimer=setTimeout(()=>{key.classList.remove('active');label.classList.remove('visible');activeTimer=null},durationMs);
 }
 
-function scheduleVowel(master, start, duration, f0, fromName, toName=fromName, level=.55) {
-    const from = vowels[fromName];
-    const to = vowels[toName];
-    const source = remember(audioCtx.createOscillator());
-    source.type = 'sawtooth';
-    source.frequency.setValueAtTime(f0, start);
-
-    const sourceGain = audioCtx.createGain();
-    envelope(sourceGain, start, duration, level, .008, .045);
-    source.connect(sourceGain);
-
-    const formants = [
-        [from.f1, to.f1, 1.00, 8],
-        [from.f2, to.f2, .72, 11],
-        [from.f3, to.f3, .42, 13]
-    ];
-    formants.forEach(([fStart, fEnd, formantLevel, q]) => {
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.Q.value = q;
-        filter.frequency.setValueAtTime(fStart, start);
-        filter.frequency.linearRampToValueAtTime(fEnd, start + duration);
-        const gain = audioCtx.createGain();
-        gain.gain.value = formantLevel;
-        sourceGain.connect(filter);
-        filter.connect(gain);
-        gain.connect(master);
-    });
-
-    const fundamental = remember(audioCtx.createOscillator());
-    fundamental.type = 'sine';
-    fundamental.frequency.setValueAtTime(f0, start);
-    const fundamentalGain = audioCtx.createGain();
-    envelope(fundamentalGain, start, duration, .075, .006, .04);
-    fundamental.connect(fundamentalGain);
-    fundamentalGain.connect(master);
-
-    source.start(start);
-    fundamental.start(start);
-    source.stop(start + duration + .02);
-    fundamental.stop(start + duration + .02);
+function playPianoTone(noteId,durationMs,voiceMode){
+ const config=notes[noteId];
+ const now=audioCtx.currentTime;
+ const master=audioCtx.createGain();
+ const osc1=audioCtx.createOscillator();
+ const osc2=audioCtx.createOscillator();
+ const osc3=audioCtx.createOscillator();
+ const harmonicGain=audioCtx.createGain();
+ const upperGain=audioCtx.createGain();
+ osc1.type='triangle';osc1.frequency.setValueAtTime(config.frequency,now);
+ osc2.type='sine';osc2.frequency.setValueAtTime(config.frequency*2,now);
+ osc3.type='sine';osc3.frequency.setValueAtTime(config.frequency*3,now);
+ const peak=voiceMode?.085:.26;
+ master.gain.setValueAtTime(.0001,now);
+ master.gain.exponentialRampToValueAtTime(peak,now+.006);
+ master.gain.exponentialRampToValueAtTime(peak*.55,now+.075);
+ master.gain.exponentialRampToValueAtTime(.0001,now+durationMs/1000);
+ harmonicGain.gain.value=voiceMode?.12:.20;
+ upperGain.gain.value=voiceMode?.04:.08;
+ osc1.connect(master);osc2.connect(harmonicGain);osc3.connect(upperGain);harmonicGain.connect(master);upperGain.connect(master);master.connect(audioCtx.destination);
+ osc1.start(now);osc2.start(now);osc3.start(now);
+ const stopAt=now+durationMs/1000+.03;osc1.stop(stopAt);osc2.stop(stopAt);osc3.stop(stopAt);
+ activeSound={gain:master,oscillators:[osc1,osc2,osc3]};
 }
 
-function scheduleStop(master, start, kind, f0) {
-    const settings = {
-        b: { center:550,  q:1.0, level:.22, hp:80 },
-        d: { center:1800, q:1.2, level:.18, hp:350 },
-        g: { center:1200, q:1.1, level:.20, hp:180 },
-        t: { center:4300, q:1.0, level:.17, hp:1800 }
-    }[kind];
-    scheduleNoise(master, start, kind === 't' ? .028 : .035, settings.center, settings.q, settings.level, settings.hp);
-    if (kind !== 't') scheduleVowel(master, start + .012, .035, f0, 'l', 'l', .12);
+function speechPitch(frequency){
+ return Math.max(.65,Math.min(1.9,.82+Math.log2(frequency/261.63)*.90));
 }
 
-function scheduleS(master, start, duration=.078) {
-    scheduleNoise(master, start, duration, 6500, 1.1, .19, 3200);
+function startSinging(noteId,token){
+ const config=notes[noteId];
+ const durationMs=config.flat?700:500;
+ const begin=()=>{
+  if(token!==speechToken)return;
+  stopAudio();
+  showKey(noteId,durationMs);
+  playPianoTone(noteId,durationMs,true);
+  document.getElementById('status').textContent=`${config.display} — complete name with matching note`;
+ };
+ if(!('speechSynthesis' in window)){
+  begin();
+  document.getElementById('status').textContent=`${config.display} — voice unavailable; playing note only`;
+  return;
+ }
+ const utterance=new SpeechSynthesisUtterance(config.speech);
+ if(selectedVoice)utterance.voice=selectedVoice;
+ utterance.lang='en-US';
+ utterance.volume=1;
+ utterance.rate=config.flat?1.55:1.65;
+ utterance.pitch=speechPitch(config.frequency);
+ let started=false;
+ utterance.onstart=()=>{started=true;begin()};
+ utterance.onend=()=>{if(token===speechToken&&!started)begin()};
+ utterance.onerror=()=>{if(token===speechToken)begin()};
+ window.speechSynthesis.cancel();
+ window.speechSynthesis.speak(utterance);
+ setTimeout(()=>{if(token===speechToken&&!started)begin()},140);
 }
 
-function scheduleF(master, start, duration=.105) {
-    scheduleNoise(master, start, duration, 3900, .8, .15, 1200);
+async function playNote(noteId){
+ const config=notes[noteId];if(!config)return;
+ await ensureAudio();
+ stopEverything();
+ const token=speechToken;
+ if(singingOn){
+  startSinging(noteId,token);
+ }else{
+  const durationMs=620;
+  showKey(noteId,durationMs);
+  playPianoTone(noteId,durationMs,false);
+  document.getElementById('status').textContent=`${config.display} — piano note only`;
+ }
 }
 
-function scheduleJ(master, start, f0, duration=.067) {
-    scheduleStop(master, start, 'd', f0);
-    scheduleNoise(master, start + .022, duration - .022, 3200, 1.0, .15, 1200);
+function createLabels(){
+ const svg=document.getElementById('piano-svg');
+ Object.entries(notes).forEach(([noteId,config])=>{
+  const key=document.getElementById(noteId);const isBlack=key.classList.contains('black-key');
+  const x=Number(key.getAttribute('x'))+Number(key.getAttribute('width'))/2;
+  const y=isBlack?Number(key.getAttribute('height'))-28:Number(key.getAttribute('height'))-34;
+  const label=document.createElementNS('http://www.w3.org/2000/svg','text');
+  label.id=`label-${noteId}`;label.setAttribute('x',x);label.setAttribute('y',y);label.setAttribute('class',`note-label ${isBlack?'black-note-label':'white-note-label'}`);label.textContent=config.label;svg.appendChild(label);
+ });
 }
 
-function scheduleNaturalLetter(master, letter, start, f0, compact=false) {
-    const vowelLong = compact ? .20 : .37;
-    switch (letter) {
-        case 'C':
-            scheduleS(master, start, compact ? .055 : .078);
-            scheduleVowel(master, start + (compact ? .05 : .07), vowelLong, f0, 'ee');
-            return (compact ? .05 : .07) + vowelLong;
-        case 'D':
-            scheduleStop(master, start, 'd', f0);
-            scheduleVowel(master, start + .025, compact ? .205 : .39, f0, 'ee');
-            return .025 + (compact ? .205 : .39);
-        case 'E':
-            scheduleVowel(master, start, compact ? .22 : .42, f0, 'ee');
-            return compact ? .22 : .42;
-        case 'F':
-            scheduleVowel(master, start, compact ? .18 : .30, f0, 'eh');
-            scheduleF(master, start + (compact ? .16 : .28), compact ? .075 : .115);
-            return compact ? .235 : .395;
-        case 'G':
-            scheduleJ(master, start, f0, compact ? .052 : .067);
-            scheduleVowel(master, start + (compact ? .045 : .06), compact ? .19 : .36, f0, 'ee');
-            return (compact ? .045 : .06) + (compact ? .19 : .36);
-        case 'A':
-            scheduleVowel(master, start, compact ? .22 : .42, f0, 'eh', 'ee');
-            return compact ? .22 : .42;
-        case 'B':
-            scheduleStop(master, start, 'b', f0);
-            scheduleVowel(master, start + .025, compact ? .205 : .39, f0, 'ee');
-            return .025 + (compact ? .205 : .39);
-    }
-    return .42;
-}
-
-function scheduleFlat(master, start, f0) {
-    scheduleF(master, start, .06);
-    scheduleVowel(master, start + .05, .075, f0, 'l', 'l', .32);
-    scheduleVowel(master, start + .105, .22, f0, 'ae', 'ae', .52);
-    scheduleStop(master, start + .31, 't', f0);
-    return .34;
-}
-
-function stopCurrent() {
-    if (activeTimer) clearTimeout(activeTimer);
-    activeTimer = null;
-    if (activePhrase) {
-        const now = audioCtx ? audioCtx.currentTime : 0;
-        try {
-            activePhrase.master.gain.cancelScheduledValues(now);
-            activePhrase.master.gain.setValueAtTime(Math.max(.0001, activePhrase.master.gain.value), now);
-            activePhrase.master.gain.exponentialRampToValueAtTime(.0001, now + .012);
-        } catch (_) {}
-        activePhrase.nodes.forEach(node => {
-            try { node.stop(now + .015); } catch (_) {}
-        });
-        activePhrase = null;
-    }
-    document.querySelectorAll('.key.active').forEach(key => key.classList.remove('active'));
-    document.querySelectorAll('.note-label.visible').forEach(label => label.classList.remove('visible'));
-}
-
-function createNoteLabels() {
-    const svg = document.getElementById('piano-svg');
-    Object.entries(noteConfig).forEach(([noteId, config]) => {
-        const key = document.getElementById(noteId);
-        const isBlack = key.classList.contains('black-key');
-        const x = Number(key.getAttribute('x')) + Number(key.getAttribute('width')) / 2;
-        const y = isBlack ? Number(key.getAttribute('height')) - 28 : Number(key.getAttribute('height')) - 34;
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.id = `label-${noteId}`;
-        label.setAttribute('x', x);
-        label.setAttribute('y', y);
-        label.setAttribute('class', `note-label ${isBlack ? 'black-note-label' : 'white-note-label'}`);
-        label.textContent = config.label;
-        svg.appendChild(label);
-    });
-}
-
-async function playNote(noteId) {
-    const config = noteConfig[noteId];
-    if (!config) return;
-    await ensureAudio();
-    stopCurrent();
-
-    const key = document.getElementById(noteId);
-    const label = document.getElementById(`label-${noteId}`);
-    key.classList.add('active');
-    label.classList.add('visible');
-
-    if (!voiceEnabled) {
-        document.getElementById('status').textContent = `${config.label} — singing is off`;
-        activeTimer = setTimeout(stopCurrent, 180);
-        return;
-    }
-
-    const master = audioCtx.createGain();
-    master.gain.value = .82;
-    const compressor = audioCtx.createDynamicsCompressor();
-    compressor.threshold.value = -18;
-    compressor.knee.value = 12;
-    compressor.ratio.value = 3;
-    compressor.attack.value = .002;
-    compressor.release.value = .06;
-    master.connect(compressor);
-    compressor.connect(audioCtx.destination);
-    activePhrase = { master, nodes: [] };
-
-    const start = audioCtx.currentTime + .008;
-    let duration;
-    if (config.flat) {
-        const letterDuration = scheduleNaturalLetter(master, config.letter, start, config.frequency, true);
-        const flatStart = start + letterDuration + .018;
-        duration = letterDuration + .018 + scheduleFlat(master, flatStart, config.frequency);
-    } else {
-        duration = scheduleNaturalLetter(master, config.letter, start, config.frequency, false);
-    }
-
-    const spoken = config.flat ? `${config.letter} flat` : config.letter;
-    document.getElementById('status').textContent = `${spoken} — sung at ${config.frequency.toFixed(2)} Hz`;
-    activeTimer = setTimeout(() => {
-        key.classList.remove('active');
-        label.classList.remove('visible');
-        activePhrase = null;
-        activeTimer = null;
-    }, Math.ceil((duration + .035) * 1000));
-}
-
-createNoteLabels();
-
-document.getElementById('voice-toggle').addEventListener('click', async function() {
-    await ensureAudio();
-    stopCurrent();
-    voiceEnabled = !voiceEnabled;
-    this.setAttribute('aria-pressed', String(voiceEnabled));
-    this.textContent = voiceEnabled ? 'Singing: On' : 'Singing: Off';
-    document.getElementById('status').textContent = voiceEnabled
-        ? 'Singing is on. Each voiced sound is locked to the key pitch.'
-        : 'Singing is off.';
+createLabels();
+document.getElementById('voice-toggle').addEventListener('click',async function(){
+ await ensureAudio();stopEverything();singingOn=!singingOn;this.setAttribute('aria-pressed',String(singingOn));this.textContent=singingOn?'Singing: On':'Singing: Off';
+ document.getElementById('status').textContent=singingOn?'Singing is on: note plus complete spoken name.':'Singing is off: piano notes still play.';
 });
-
-document.getElementById('piano-svg').addEventListener('pointerdown', event => {
-    event.preventDefault();
-    if (event.target.classList.contains('key')) void playNote(event.target.id);
-});
+document.getElementById('piano-svg').addEventListener('pointerdown',event=>{event.preventDefault();if(event.target.classList.contains('key'))void playNote(event.target.id)});
 </script>
 </body>
 </html>

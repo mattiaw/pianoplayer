@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Singing Letter Music Keyboard</title>
+    <style>
+        :root {
+            --white-key-width: 60px;
+            --white-key-height: 220px;
+            --black-key-width: 36px;
+            --black-key-height: 130px;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f4f8;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        #app-container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        }
+
+        .keyboard-wrapper {
+            position: relative;
+            margin-top: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        svg {
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
+        }
+
+        .key {
+            cursor: pointer;
+            transition: filter 0.1s ease, transform 0.05s ease;
+            stroke-width: 1px;
+        }
+
+        .key-C { fill: #FF4A4A; stroke: #c92a2a; }
+        .key-D { fill: #FF922B; stroke: #d9480f; }
+        .key-E { fill: #FCC419; stroke: #e67700; }
+        .key-F { fill: #51CF66; stroke: #2b8a3e; }
+        .key-G { fill: #37B24D; stroke: #2b8a3e; }
+        .key-A { fill: #339AF0; stroke: #1864ab; }
+        .key-B { fill: #845EF7; stroke: #5f3dc4; }
+
+        .white-key:active, .white-key.active {
+            filter: brightness(0.85);
+        }
+
+        .black-key {
+            fill: #343A40;
+            stroke: #212529;
+        }
+
+        .black-key:active, .black-key.active {
+            fill: #495057;
+        }
+
+        .note-label {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.04s linear;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-weight: 800;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .note-label.visible {
+            opacity: 1;
+        }
+
+        .white-note-label {
+            fill: #111827;
+            font-size: 28px;
+        }
+
+        .black-note-label {
+            fill: #ffffff;
+            font-size: 17px;
+        }
+
+        .status-message {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .voice-toggle {
+            appearance: none;
+            border: 0;
+            border-radius: 999px;
+            padding: 8px 14px;
+            margin-bottom: 8px;
+            background: #e8f5e9;
+            color: #166534;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: inset 0 0 0 1px rgba(22, 101, 52, 0.16);
+        }
+
+        .voice-toggle[aria-pressed="false"] {
+            background: #f3f4f6;
+            color: #6b7280;
+            box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.18);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="status" class="status-message">Tap a key to hear its letter sung clearly at the note pitch.</div>
+    <button id="voice-toggle" class="voice-toggle" type="button" aria-pressed="true">Singing: On</button>
+    <div class="keyboard-wrapper">
+        <svg width="480" height="230" viewBox="0 0 480 230" id="piano-svg">
+            <g class="white-keys-group">
+                <rect id="key-C4" class="key white-key key-C" x="0" y="0" width="60" height="220" rx="6" />
+                <rect id="key-D4" class="key white-key key-D" x="60" y="0" width="60" height="220" rx="6" />
+                <rect id="key-E4" class="key white-key key-E" x="120" y="0" width="60" height="220" rx="6" />
+                <rect id="key-F4" class="key white-key key-F" x="180" y="0" width="60" height="220" rx="6" />
+                <rect id="key-G4" class="key white-key key-G" x="240" y="0" width="60" height="220" rx="6" />
+                <rect id="key-A4" class="key white-key key-A" x="300" y="0" width="60" height="220" rx="6" />
+                <rect id="key-B4" class="key white-key key-B" x="360" y="0" width="60" height="220" rx="6" />
+                <rect id="key-C5" class="key white-key key-C" x="420" y="0" width="60" height="220" rx="6" />
+            </g>
+            <g class="black-keys-group">
+                <rect id="key-Db4" class="key black-key" x="42" y="0" width="36" height="130" rx="4" />
+                <rect id="key-Eb4" class="key black-key" x="102" y="0" width="36" height="130" rx="4" />
+                <rect id="key-Gb4" class="key black-key" x="222" y="0" width="36" height="130" rx="4" />
+                <rect id="key-Ab4" class="key black-key" x="282" y="0" width="36" height="130" rx="4" />
+                <rect id="key-Bb4" class="key black-key" x="342" y="0" width="36" height="130" rx="4" />
+            </g>
+        </svg>
+    </div>
+</div>
+
+<script src="audio-data-1.js"></script>
+<script src="audio-data-2.js"></script>
+<script src="audio-data-3.js"></script>
+<script src="audio-data-4.js"></script>
+<script src="audio-data-5.js"></script>
+<script>
+    let audioCtx = null;
+    let voiceEnabled = true;
+    let activeVoice = null;
+    let activeTone = null;
+    const NOTE_DURATION_MS = 460;
+    const NOTE_DURATION = NOTE_DURATION_MS / 1000;
+
+    const noteConfig = {
+        'key-C4': { frequency: 261.63, label: 'C4' },
+        'key-Db4': { frequency: 277.18, label: 'Db4' },
+        'key-D4': { frequency: 293.66, label: 'D4' },
+        'key-Eb4': { frequency: 311.13, label: 'Eb4' },
+        'key-E4': { frequency: 329.63, label: 'E4' },
+        'key-F4': { frequency: 349.23, label: 'F4' },
+        'key-Gb4': { frequency: 369.99, label: 'Gb4' },
+        'key-G4': { frequency: 392.00, label: 'G4' },
+        'key-Ab4': { frequency: 415.30, label: 'Ab4' },
+        'key-A4': { frequency: 440.00, label: 'A4' },
+        'key-Bb4': { frequency: 466.16, label: 'Bb4' },
+        'key-B4': { frequency: 493.88, label: 'B4' },
+        'key-C5': { frequency: 523.25, label: 'C5' }
+    };
+
+    const sungLetterAudio = window.sungLetterAudio || {};
+    const voicePlayers = {};
+    Object.entries(sungLetterAudio).forEach(([noteId, source]) => {
+        const player = new Audio(source);
+        player.preload = 'auto';
+        voicePlayers[noteId] = player;
+    });
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('status').innerText = 'Ready! Tap a key to hear the letter sung clearly.';
+    }
+
+    function stopActiveSounds() {
+        if (activeVoice) {
+            activeVoice.pause();
+            try { activeVoice.currentTime = 0; } catch (_) {}
+            activeVoice = null;
+        }
+        if (activeTone && audioCtx) {
+            const now = audioCtx.currentTime;
+            try {
+                activeTone.gain.gain.cancelScheduledValues(now);
+                activeTone.gain.gain.setValueAtTime(Math.max(activeTone.gain.gain.value, 0.0001), now);
+                activeTone.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+                activeTone.osc.stop(now + 0.02);
+                activeTone.harmonic.stop(now + 0.02);
+            } catch (_) {}
+            activeTone = null;
+        }
+    }
+
+    function playClearSungLetter(noteId) {
+        if (!voiceEnabled) return;
+        const player = voicePlayers[noteId];
+        if (!player) return;
+        if (activeVoice) {
+            activeVoice.pause();
+            try { activeVoice.currentTime = 0; } catch (_) {}
+        }
+        player.pause();
+        player.currentTime = 0;
+        player.volume = 1;
+        activeVoice = player;
+        player.play().catch(() => {});
+        window.setTimeout(() => {
+            if (activeVoice === player) {
+                player.pause();
+                try { player.currentTime = 0; } catch (_) {}
+                activeVoice = null;
+            }
+        }, NOTE_DURATION_MS);
+    }
+
+    const labelTimers = {};
+    function showNoteLabel(noteId) {
+        const label = document.getElementById(`label-${noteId}`);
+        if (!label) return;
+        clearTimeout(labelTimers[noteId]);
+        label.classList.add('visible');
+        labelTimers[noteId] = setTimeout(() => label.classList.remove('visible'), NOTE_DURATION_MS);
+    }
+
+    function createNoteLabels() {
+        const svg = document.getElementById('piano-svg');
+        const labelNames = {
+            'key-C4': 'C', 'key-Db4': 'D♭', 'key-D4': 'D', 'key-Eb4': 'E♭',
+            'key-E4': 'E', 'key-F4': 'F', 'key-Gb4': 'G♭', 'key-G4': 'G',
+            'key-Ab4': 'A♭', 'key-A4': 'A', 'key-Bb4': 'B♭', 'key-B4': 'B', 'key-C5': 'C'
+        };
+        Object.entries(labelNames).forEach(([noteId, labelText]) => {
+            const key = document.getElementById(noteId);
+            if (!key) return;
+            const x = Number(key.getAttribute('x')) + Number(key.getAttribute('width')) / 2;
+            const isBlack = key.classList.contains('black-key');
+            const y = isBlack ? Number(key.getAttribute('height')) - 28 : Number(key.getAttribute('height')) - 34;
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.id = `label-${noteId}`;
+            label.setAttribute('x', x);
+            label.setAttribute('y', y);
+            label.setAttribute('class', `note-label ${isBlack ? 'black-note-label' : 'white-note-label'}`);
+            label.textContent = labelText;
+            svg.appendChild(label);
+        });
+    }
+
+    function playExactTone(noteId) {
+        const config = noteConfig[noteId];
+        if (!config || !audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const harmonic = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const harmonicGain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(config.frequency, now);
+        harmonic.type = 'sine';
+        harmonic.frequency.setValueAtTime(config.frequency * 2, now);
+        gain.gain.setValueAtTime(0.075, now);
+        gain.gain.exponentialRampToValueAtTime(0.035, now + 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + NOTE_DURATION);
+        harmonicGain.gain.setValueAtTime(0.018, now);
+        harmonicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+        osc.connect(gain);
+        harmonic.connect(harmonicGain);
+        harmonicGain.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        harmonic.start(now);
+        osc.stop(now + NOTE_DURATION + 0.02);
+        harmonic.stop(now + 0.17);
+        activeTone = { osc, harmonic, gain };
+    }
+
+    function playNote(noteId) {
+        initAudio();
+        if (!noteConfig[noteId]) return;
+        stopActiveSounds();
+        showNoteLabel(noteId);
+        playClearSungLetter(noteId);
+        playExactTone(noteId);
+    }
+
+    createNoteLabels();
+    document.getElementById('voice-toggle').addEventListener('click', function() {
+        voiceEnabled = !voiceEnabled;
+        this.setAttribute('aria-pressed', String(voiceEnabled));
+        this.textContent = voiceEnabled ? 'Singing: On' : 'Singing: Off';
+        if (!voiceEnabled && activeVoice) {
+            activeVoice.pause();
+            try { activeVoice.currentTime = 0; } catch (_) {}
+            activeVoice = null;
+        }
+    });
+    document.getElementById('piano-svg').addEventListener('mousedown', e => {
+        if (e.target.classList.contains('key')) playNote(e.target.id);
+    });
+    document.getElementById('piano-svg').addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (e.target.classList.contains('key')) playNote(e.target.id);
+    }, { passive: false });
+</script>
+</body>
+</html>

@@ -160,45 +160,74 @@
     let voiceEnabled = true;
     let activeVoice = null;
     let activeTone = null;
+    let playGeneration = 0;
+    let preloadStarted = false;
     const NOTE_DURATION_MS = 460;
     const NOTE_DURATION = NOTE_DURATION_MS / 1000;
 
     const noteConfig = {
-        'key-C4': { frequency: 261.63, label: 'C4' },
-        'key-Db4': { frequency: 277.18, label: 'Db4' },
-        'key-D4': { frequency: 293.66, label: 'D4' },
-        'key-Eb4': { frequency: 311.13, label: 'Eb4' },
-        'key-E4': { frequency: 329.63, label: 'E4' },
-        'key-F4': { frequency: 349.23, label: 'F4' },
-        'key-Gb4': { frequency: 369.99, label: 'Gb4' },
-        'key-G4': { frequency: 392.00, label: 'G4' },
-        'key-Ab4': { frequency: 415.30, label: 'Ab4' },
-        'key-A4': { frequency: 440.00, label: 'A4' },
-        'key-Bb4': { frequency: 466.16, label: 'Bb4' },
-        'key-B4': { frequency: 493.88, label: 'B4' },
-        'key-C5': { frequency: 523.25, label: 'C5' }
+        'key-C4':  { frequency: 261.63, spoken: 'C' },
+        'key-Db4': { frequency: 277.18, spoken: 'D flat' },
+        'key-D4':  { frequency: 293.66, spoken: 'D' },
+        'key-Eb4': { frequency: 311.13, spoken: 'E flat' },
+        'key-E4':  { frequency: 329.63, spoken: 'E' },
+        'key-F4':  { frequency: 349.23, spoken: 'F' },
+        'key-Gb4': { frequency: 369.99, spoken: 'G flat' },
+        'key-G4':  { frequency: 392.00, spoken: 'G' },
+        'key-Ab4': { frequency: 415.30, spoken: 'A flat' },
+        'key-A4':  { frequency: 440.00, spoken: 'A' },
+        'key-Bb4': { frequency: 466.16, spoken: 'B flat' },
+        'key-B4':  { frequency: 493.88, spoken: 'B' },
+        'key-C5':  { frequency: 523.25, spoken: 'C' }
     };
 
     const sungLetterAudio = window.sungLetterAudio || {};
-    const voicePlayers = {};
-    Object.entries(sungLetterAudio).forEach(([noteId, source]) => {
-        const player = new Audio(source);
-        player.preload = 'auto';
-        voicePlayers[noteId] = player;
-    });
+    const voiceBuffers = new Map();
+    const voiceBufferPromises = new Map();
+
+    function dataUriToArrayBuffer(dataUri) {
+        const comma = dataUri.indexOf(',');
+        if (comma < 0) throw new Error('Invalid audio data');
+        const binary = atob(dataUri.slice(comma + 1));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return bytes.buffer;
+    }
 
     function initAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        document.getElementById('status').innerText = 'Ready! Tap a key to hear the letter sung clearly.';
+        if (!preloadStarted) {
+            preloadStarted = true;
+            Object.keys(sungLetterAudio).forEach(noteId => void getVoiceBuffer(noteId));
+        }
+    }
+
+    async function getVoiceBuffer(noteId) {
+        if (voiceBuffers.has(noteId)) return voiceBuffers.get(noteId);
+        if (voiceBufferPromises.has(noteId)) return voiceBufferPromises.get(noteId);
+        const source = sungLetterAudio[noteId];
+        if (!source) throw new Error(`Missing recording for ${noteId}`);
+        const promise = audioCtx.decodeAudioData(dataUriToArrayBuffer(source).slice(0))
+            .then(buffer => {
+                voiceBuffers.set(noteId, buffer);
+                voiceBufferPromises.delete(noteId);
+                return buffer;
+            })
+            .catch(error => {
+                voiceBufferPromises.delete(noteId);
+                throw error;
+            });
+        voiceBufferPromises.set(noteId, promise);
+        return promise;
     }
 
     function stopActiveSounds() {
         if (activeVoice) {
-            activeVoice.pause();
-            try { activeVoice.currentTime = 0; } catch (_) {}
+            try { activeVoice.source.stop(); } catch (_) {}
             activeVoice = null;
         }
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         if (activeTone && audioCtx) {
             const now = audioCtx.currentTime;
             try {
@@ -212,26 +241,33 @@
         }
     }
 
-    function playClearSungLetter(noteId) {
-        if (!voiceEnabled) return;
-        const player = voicePlayers[noteId];
-        if (!player) return;
-        if (activeVoice) {
-            activeVoice.pause();
-            try { activeVoice.currentTime = 0; } catch (_) {}
-        }
-        player.pause();
-        player.currentTime = 0;
-        player.volume = 1;
-        activeVoice = player;
-        player.play().catch(() => {});
-        window.setTimeout(() => {
-            if (activeVoice === player) {
-                player.pause();
-                try { player.currentTime = 0; } catch (_) {}
-                activeVoice = null;
-            }
-        }, NOTE_DURATION_MS);
+    function playVoiceBuffer(buffer) {
+        const source = audioCtx.createBufferSource();
+        const gain = audioCtx.createGain();
+        source.buffer = buffer;
+        gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+        gain.gain.setValueAtTime(1.0, audioCtx.currentTime + 0.36);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + NOTE_DURATION);
+        source.connect(gain);
+        gain.connect(audioCtx.destination);
+        source.start(audioCtx.currentTime);
+        source.stop(audioCtx.currentTime + NOTE_DURATION + 0.02);
+        activeVoice = { source, gain };
+        source.onended = () => {
+            if (activeVoice && activeVoice.source === source) activeVoice = null;
+        };
+    }
+
+    function speakFallback(noteId) {
+        if (!voiceEnabled || !('speechSynthesis' in window)) return;
+        const config = noteConfig[noteId];
+        const utterance = new SpeechSynthesisUtterance(config.spoken);
+        utterance.rate = config.spoken.includes('flat') ? 2.6 : 2.2;
+        utterance.pitch = Math.min(1.8, 0.85 + Math.log2(config.frequency / 261.63) * 0.72);
+        utterance.volume = 1;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        window.setTimeout(() => window.speechSynthesis.cancel(), NOTE_DURATION_MS);
     }
 
     const labelTimers = {};
@@ -278,10 +314,10 @@
         osc.frequency.setValueAtTime(config.frequency, now);
         harmonic.type = 'sine';
         harmonic.frequency.setValueAtTime(config.frequency * 2, now);
-        gain.gain.setValueAtTime(0.075, now);
-        gain.gain.exponentialRampToValueAtTime(0.035, now + 0.07);
+        gain.gain.setValueAtTime(0.042, now);
+        gain.gain.exponentialRampToValueAtTime(0.022, now + 0.07);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + NOTE_DURATION);
-        harmonicGain.gain.setValueAtTime(0.018, now);
+        harmonicGain.gain.setValueAtTime(0.010, now);
         harmonicGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
         osc.connect(gain);
         harmonic.connect(harmonicGain);
@@ -294,33 +330,46 @@
         activeTone = { osc, harmonic, gain };
     }
 
-    function playNote(noteId) {
-        initAudio();
+    async function playNote(noteId) {
         if (!noteConfig[noteId]) return;
+        initAudio();
+        const generation = ++playGeneration;
         stopActiveSounds();
+        let voiceBuffer = null;
+        if (voiceEnabled) {
+            document.getElementById('status').innerText = `Loading ${noteConfig[noteId].spoken}…`;
+            try {
+                voiceBuffer = await getVoiceBuffer(noteId);
+            } catch (_) {
+                voiceBuffer = null;
+            }
+        }
+        if (generation !== playGeneration) return;
         showNoteLabel(noteId);
-        playClearSungLetter(noteId);
         playExactTone(noteId);
+        if (voiceEnabled) {
+            if (voiceBuffer) playVoiceBuffer(voiceBuffer);
+            else speakFallback(noteId);
+        }
+        document.getElementById('status').innerText = `Singing ${noteConfig[noteId].spoken}`;
     }
 
     createNoteLabels();
     document.getElementById('voice-toggle').addEventListener('click', function() {
         voiceEnabled = !voiceEnabled;
+        playGeneration += 1;
+        stopActiveSounds();
         this.setAttribute('aria-pressed', String(voiceEnabled));
         this.textContent = voiceEnabled ? 'Singing: On' : 'Singing: Off';
-        if (!voiceEnabled && activeVoice) {
-            activeVoice.pause();
-            try { activeVoice.currentTime = 0; } catch (_) {}
-            activeVoice = null;
-        }
+        document.getElementById('status').innerText = voiceEnabled
+            ? 'Tap a key to hear its letter pronounced at the note pitch.'
+            : 'Singing is off. Tap a key to hear the piano tone.';
     });
-    document.getElementById('piano-svg').addEventListener('mousedown', e => {
-        if (e.target.classList.contains('key')) playNote(e.target.id);
+
+    document.getElementById('piano-svg').addEventListener('pointerdown', event => {
+        event.preventDefault();
+        if (event.target.classList.contains('key')) void playNote(event.target.id);
     });
-    document.getElementById('piano-svg').addEventListener('touchstart', e => {
-        e.preventDefault();
-        if (e.target.classList.contains('key')) playNote(e.target.id);
-    }, { passive: false });
 </script>
 </body>
 </html>

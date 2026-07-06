@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clear Singing Letter Piano</title>
+<title>Synchronized Singing Letter Piano</title>
 <style>
 body{margin:0;padding:20px;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:system-ui,-apple-system,sans-serif}
 #app-container{text-align:center;background:#fff;padding:30px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.05)}
@@ -11,18 +11,19 @@ body{margin:0;padding:20px;display:flex;align-items:center;justify-content:cente
 .voice-toggle{appearance:none;border:0;border-radius:999px;padding:8px 14px;margin-bottom:8px;background:#e8f5e9;color:#166534;font:inherit;font-weight:750;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(22,101,52,.16)}
 .voice-toggle[aria-pressed="false"]{background:#f3f4f6;color:#6b7280;box-shadow:inset 0 0 0 1px rgba(107,114,128,.18)}
 .keyboard-wrapper{position:relative;margin-top:20px;user-select:none;-webkit-user-select:none}
+.keyboard-wrapper.loading{opacity:.62;pointer-events:none}
 svg{filter:drop-shadow(0 4px 6px rgba(0,0,0,.05));touch-action:none}
 .key{cursor:pointer;stroke-width:1px;transition:filter .05s ease}
 .key-C{fill:#FF4A4A;stroke:#c92a2a}.key-D{fill:#FF922B;stroke:#d9480f}.key-E{fill:#FCC419;stroke:#e67700}.key-F{fill:#51CF66;stroke:#2b8a3e}.key-G{fill:#37B24D;stroke:#2b8a3e}.key-A{fill:#339AF0;stroke:#1864ab}.key-B{fill:#845EF7;stroke:#5f3dc4}
 .white-key.active{filter:brightness(.80)}.black-key{fill:#343A40;stroke:#212529}.black-key.active{fill:#596169}
-.note-label{pointer-events:none;opacity:0;transition:opacity .02s linear;font-weight:850;text-anchor:middle;dominant-baseline:middle}.note-label.visible{opacity:1}.white-note-label{fill:#111827;font-size:28px}.black-note-label{fill:#fff;font-size:17px}
+.note-label{pointer-events:none;opacity:0;transition:opacity .015s linear;font-weight:850;text-anchor:middle;dominant-baseline:middle}.note-label.visible{opacity:1}.white-note-label{fill:#111827;font-size:28px}.black-note-label{fill:#fff;font-size:17px}
 </style>
 </head>
 <body>
 <div id="app-container">
-<div id="status" class="status-message">Tap a key. You will hear the note and its complete name.</div>
+<div id="status" class="status-message">Preparing pitch-matched letter recordings…</div>
 <button id="voice-toggle" class="voice-toggle" type="button" aria-pressed="true">Singing: On</button>
-<div class="keyboard-wrapper">
+<div id="keyboard-wrapper" class="keyboard-wrapper loading">
 <svg width="480" height="230" viewBox="0 0 480 230" id="piano-svg">
 <g class="white-keys-group">
 <rect id="key-C4" class="key white-key key-C" x="0" y="0" width="60" height="220" rx="6"/>
@@ -44,162 +45,222 @@ svg{filter:drop-shadow(0 4px 6px rgba(0,0,0,.05));touch-action:none}
 </svg>
 </div>
 </div>
+<script src="audio-data-1.js"></script>
+<script src="audio-data-2.js"></script>
+<script src="audio-data-3.js"></script>
+<script src="audio-data-4.js"></script>
+<script src="audio-data-5.js"></script>
 <script>
 const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-let audioCtx=null;
+const audioCtx=new AudioContextClass();
 let singingOn=true;
-let selectedVoice=null;
-let activeSound=null;
+let voicesReady=false;
+let activeNodes=[];
 let activeTimer=null;
-let speechToken=0;
+let playSequence=0;
+const voiceBuffers=new Map();
 
 const notes={
-'key-C4':{frequency:261.63,label:'C',speech:'see',display:'C',flat:false},
-'key-Db4':{frequency:277.18,label:'D♭',speech:'dee flat',display:'D flat',flat:true},
-'key-D4':{frequency:293.66,label:'D',speech:'dee',display:'D',flat:false},
-'key-Eb4':{frequency:311.13,label:'E♭',speech:'ee flat',display:'E flat',flat:true},
-'key-E4':{frequency:329.63,label:'E',speech:'ee',display:'E',flat:false},
-'key-F4':{frequency:349.23,label:'F',speech:'eff',display:'F',flat:false},
-'key-Gb4':{frequency:369.99,label:'G♭',speech:'gee flat',display:'G flat',flat:true},
-'key-G4':{frequency:392.00,label:'G',speech:'gee',display:'G',flat:false},
-'key-Ab4':{frequency:415.30,label:'A♭',speech:'ay flat',display:'A flat',flat:true},
-'key-A4':{frequency:440.00,label:'A',speech:'ay',display:'A',flat:false},
-'key-Bb4':{frequency:466.16,label:'B♭',speech:'bee flat',display:'B flat',flat:true},
-'key-B4':{frequency:493.88,label:'B',speech:'bee',display:'B',flat:false},
-'key-C5':{frequency:523.25,label:'C',speech:'see',display:'C',flat:false}
+'key-C4':{frequency:261.63,label:'C',name:'C'},
+'key-Db4':{frequency:277.18,label:'D♭',name:'D flat'},
+'key-D4':{frequency:293.66,label:'D',name:'D'},
+'key-Eb4':{frequency:311.13,label:'E♭',name:'E flat'},
+'key-E4':{frequency:329.63,label:'E',name:'E'},
+'key-F4':{frequency:349.23,label:'F',name:'F'},
+'key-Gb4':{frequency:369.99,label:'G♭',name:'G flat'},
+'key-G4':{frequency:392.00,label:'G',name:'G'},
+'key-Ab4':{frequency:415.30,label:'A♭',name:'A flat'},
+'key-A4':{frequency:440.00,label:'A',name:'A'},
+'key-Bb4':{frequency:466.16,label:'B♭',name:'B flat'},
+'key-B4':{frequency:493.88,label:'B',name:'B'},
+'key-C5':{frequency:523.25,label:'C',name:'C'}
 };
 
-function chooseVoice(){
- if(!('speechSynthesis' in window))return;
- const voices=window.speechSynthesis.getVoices();
- const preferred=[/Microsoft Aria/i,/Microsoft Jenny/i,/Google US English/i,/Samantha/i,/Zira/i,/female/i,/English.*United States/i,/en-US/i];
- for(const pattern of preferred){const found=voices.find(v=>pattern.test(v.name)||pattern.test(v.lang));if(found){selectedVoice=found;break}}
- if(!selectedVoice)selectedVoice=voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
-}
-if('speechSynthesis' in window){chooseVoice();window.speechSynthesis.onvoiceschanged=chooseVoice}
-
-function ensureAudio(){
- if(!audioCtx)audioCtx=new AudioContextClass();
- return audioCtx.state==='suspended'?audioCtx.resume():Promise.resolve();
+function dataUriToArrayBuffer(uri){
+ const comma=uri.indexOf(',');
+ const binary=atob(uri.slice(comma+1));
+ const bytes=new Uint8Array(binary.length);
+ for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+ return bytes.buffer;
 }
 
-function stopAudio(){
- if(activeTimer){clearTimeout(activeTimer);activeTimer=null}
- if(activeSound){
-  const now=audioCtx?audioCtx.currentTime:0;
-  try{activeSound.gain.gain.cancelScheduledValues(now);activeSound.gain.gain.setValueAtTime(Math.max(.0001,activeSound.gain.gain.value),now);activeSound.gain.gain.exponentialRampToValueAtTime(.0001,now+.015)}catch(_){ }
-  activeSound.oscillators.forEach(o=>{try{o.stop(now+.02)}catch(_){}});
-  activeSound=null;
+function findAudibleRange(buffer){
+ const channel=buffer.getChannelData(0);
+ const threshold=.006;
+ let first=0;
+ let last=channel.length-1;
+ const windowSize=Math.max(32,Math.floor(buffer.sampleRate*.002));
+ function windowPeak(start){
+  let peak=0;
+  const end=Math.min(channel.length,start+windowSize);
+  for(let i=start;i<end;i++)peak=Math.max(peak,Math.abs(channel[i]));
+  return peak;
  }
+ while(first<channel.length-windowSize&&windowPeak(first)<threshold)first+=windowSize;
+ while(last>windowSize&&windowPeak(Math.max(0,last-windowSize))<threshold)last-=windowSize;
+ const preRoll=Math.floor(buffer.sampleRate*.006);
+ const postRoll=Math.floor(buffer.sampleRate*.018);
+ first=Math.max(0,first-preRoll);
+ last=Math.min(channel.length-1,last+postRoll);
+ return{offset:first/buffer.sampleRate,duration:Math.max(.12,(last-first)/buffer.sampleRate)};
+}
+
+async function prepareVoices(){
+ const entries=Object.entries(window.sungLetterAudio||{});
+ if(!entries.length)throw new Error('The tuned voice recordings did not load.');
+ await Promise.all(entries.map(async([noteId,uri])=>{
+  const buffer=await audioCtx.decodeAudioData(dataUriToArrayBuffer(uri).slice(0));
+  const range=findAudibleRange(buffer);
+  voiceBuffers.set(noteId,{buffer,...range});
+ }));
+ voicesReady=true;
+ document.getElementById('keyboard-wrapper').classList.remove('loading');
+ document.getElementById('status').textContent='Ready. Voice and note now start together at the key pitch.';
+}
+
+function stopCurrent(){
+ playSequence+=1;
+ if(activeTimer){clearTimeout(activeTimer);activeTimer=null}
+ activeNodes.forEach(node=>{try{node.stop()}catch(_){}});
+ activeNodes=[];
  document.querySelectorAll('.key.active').forEach(k=>k.classList.remove('active'));
  document.querySelectorAll('.note-label.visible').forEach(l=>l.classList.remove('visible'));
 }
 
-function stopEverything(){
- speechToken+=1;
- if('speechSynthesis' in window)window.speechSynthesis.cancel();
- stopAudio();
-}
-
-function showKey(noteId,durationMs){
+function showKey(noteId,durationSeconds,sequence){
  const key=document.getElementById(noteId);
  const label=document.getElementById(`label-${noteId}`);
  key.classList.add('active');
  label.classList.add('visible');
- activeTimer=setTimeout(()=>{key.classList.remove('active');label.classList.remove('visible');activeTimer=null},durationMs);
+ activeTimer=setTimeout(()=>{
+  if(sequence!==playSequence)return;
+  key.classList.remove('active');
+  label.classList.remove('visible');
+  activeTimer=null;
+ },Math.ceil(durationSeconds*1000));
 }
 
-function playPianoTone(noteId,durationMs,voiceMode){
- const config=notes[noteId];
- const now=audioCtx.currentTime;
+function schedulePiano(noteId,when,duration,voicePresent){
+ const frequency=notes[noteId].frequency;
  const master=audioCtx.createGain();
- const osc1=audioCtx.createOscillator();
- const osc2=audioCtx.createOscillator();
- const osc3=audioCtx.createOscillator();
+ const tone=audioCtx.createOscillator();
+ const harmonic=audioCtx.createOscillator();
  const harmonicGain=audioCtx.createGain();
- const upperGain=audioCtx.createGain();
- osc1.type='triangle';osc1.frequency.setValueAtTime(config.frequency,now);
- osc2.type='sine';osc2.frequency.setValueAtTime(config.frequency*2,now);
- osc3.type='sine';osc3.frequency.setValueAtTime(config.frequency*3,now);
- const peak=voiceMode?.085:.26;
- master.gain.setValueAtTime(.0001,now);
- master.gain.exponentialRampToValueAtTime(peak,now+.006);
- master.gain.exponentialRampToValueAtTime(peak*.55,now+.075);
- master.gain.exponentialRampToValueAtTime(.0001,now+durationMs/1000);
- harmonicGain.gain.value=voiceMode?.12:.20;
- upperGain.gain.value=voiceMode?.04:.08;
- osc1.connect(master);osc2.connect(harmonicGain);osc3.connect(upperGain);harmonicGain.connect(master);upperGain.connect(master);master.connect(audioCtx.destination);
- osc1.start(now);osc2.start(now);osc3.start(now);
- const stopAt=now+durationMs/1000+.03;osc1.stop(stopAt);osc2.stop(stopAt);osc3.stop(stopAt);
- activeSound={gain:master,oscillators:[osc1,osc2,osc3]};
+ tone.type='triangle';
+ harmonic.type='sine';
+ tone.frequency.setValueAtTime(frequency,when);
+ harmonic.frequency.setValueAtTime(frequency*2,when);
+ harmonicGain.gain.value=voicePresent?.12:.22;
+ const peak=voicePresent?.055:.24;
+ master.gain.setValueAtTime(.0001,when);
+ master.gain.exponentialRampToValueAtTime(peak,when+.006);
+ master.gain.exponentialRampToValueAtTime(peak*.55,when+.075);
+ master.gain.setValueAtTime(Math.max(.0002,peak*.34),Math.max(when+.09,when+duration-.055));
+ master.gain.exponentialRampToValueAtTime(.0001,when+duration);
+ tone.connect(master);
+ harmonic.connect(harmonicGain);
+ harmonicGain.connect(master);
+ master.connect(audioCtx.destination);
+ tone.start(when);harmonic.start(when);
+ tone.stop(when+duration+.025);harmonic.stop(when+duration+.025);
+ activeNodes.push(tone,harmonic);
 }
 
-function speechPitch(frequency){
- return Math.max(.65,Math.min(1.9,.82+Math.log2(frequency/261.63)*.90));
-}
-
-function startSinging(noteId,token){
- const config=notes[noteId];
- const durationMs=config.flat?700:500;
- const begin=()=>{
-  if(token!==speechToken)return;
-  stopAudio();
-  showKey(noteId,durationMs);
-  playPianoTone(noteId,durationMs,true);
-  document.getElementById('status').textContent=`${config.display} — complete name with matching note`;
- };
- if(!('speechSynthesis' in window)){
-  begin();
-  document.getElementById('status').textContent=`${config.display} — voice unavailable; playing note only`;
-  return;
- }
- const utterance=new SpeechSynthesisUtterance(config.speech);
- if(selectedVoice)utterance.voice=selectedVoice;
- utterance.lang='en-US';
- utterance.volume=1;
- utterance.rate=config.flat?1.55:1.65;
- utterance.pitch=speechPitch(config.frequency);
- let started=false;
- utterance.onstart=()=>{started=true;begin()};
- utterance.onend=()=>{if(token===speechToken&&!started)begin()};
- utterance.onerror=()=>{if(token===speechToken)begin()};
- window.speechSynthesis.cancel();
- window.speechSynthesis.speak(utterance);
- setTimeout(()=>{if(token===speechToken&&!started)begin()},140);
+function scheduleVoice(noteId,when){
+ const voice=voiceBuffers.get(noteId);
+ if(!voice)return null;
+ const source=audioCtx.createBufferSource();
+ source.buffer=voice.buffer;
+ const highShelf=audioCtx.createBiquadFilter();
+ highShelf.type='highshelf';
+ highShelf.frequency.value=2600;
+ highShelf.gain.value=5.5;
+ const presence=audioCtx.createBiquadFilter();
+ presence.type='peaking';
+ presence.frequency.value=1450;
+ presence.Q.value=.8;
+ presence.gain.value=2.5;
+ const compressor=audioCtx.createDynamicsCompressor();
+ compressor.threshold.value=-22;
+ compressor.knee.value=10;
+ compressor.ratio.value=3.5;
+ compressor.attack.value=.002;
+ compressor.release.value=.055;
+ const gain=audioCtx.createGain();
+ gain.gain.setValueAtTime(1.15,when);
+ gain.gain.setValueAtTime(1.15,Math.max(when,when+voice.duration-.035));
+ gain.gain.exponentialRampToValueAtTime(.0001,when+voice.duration);
+ source.connect(highShelf);
+ highShelf.connect(presence);
+ presence.connect(compressor);
+ compressor.connect(gain);
+ gain.connect(audioCtx.destination);
+ source.start(when,voice.offset,voice.duration);
+ source.stop(when+voice.duration+.015);
+ activeNodes.push(source);
+ return voice.duration;
 }
 
 async function playNote(noteId){
- const config=notes[noteId];if(!config)return;
- await ensureAudio();
- stopEverything();
- const token=speechToken;
- if(singingOn){
-  startSinging(noteId,token);
- }else{
-  const durationMs=620;
-  showKey(noteId,durationMs);
-  playPianoTone(noteId,durationMs,false);
-  document.getElementById('status').textContent=`${config.display} — piano note only`;
+ if(!notes[noteId])return;
+ if(audioCtx.state==='suspended')await audioCtx.resume();
+ if(!voicesReady&&singingOn){
+  document.getElementById('status').textContent='The tuned voice recordings are still preparing…';
+  return;
  }
+ stopCurrent();
+ const sequence=playSequence;
+ const when=audioCtx.currentTime+.018;
+ let duration=.56;
+ if(singingOn){
+  duration=scheduleVoice(noteId,when)||.56;
+  schedulePiano(noteId,when,duration,true);
+  document.getElementById('status').textContent=`${notes[noteId].name}: voice and note synchronized at ${notes[noteId].frequency.toFixed(2)} Hz`;
+ }else{
+  schedulePiano(noteId,when,duration,false);
+  document.getElementById('status').textContent=`${notes[noteId].name}: piano note only`;
+ }
+ showKey(noteId,duration,sequence);
 }
 
 function createLabels(){
  const svg=document.getElementById('piano-svg');
  Object.entries(notes).forEach(([noteId,config])=>{
-  const key=document.getElementById(noteId);const isBlack=key.classList.contains('black-key');
+  const key=document.getElementById(noteId);
+  const isBlack=key.classList.contains('black-key');
   const x=Number(key.getAttribute('x'))+Number(key.getAttribute('width'))/2;
   const y=isBlack?Number(key.getAttribute('height'))-28:Number(key.getAttribute('height'))-34;
   const label=document.createElementNS('http://www.w3.org/2000/svg','text');
-  label.id=`label-${noteId}`;label.setAttribute('x',x);label.setAttribute('y',y);label.setAttribute('class',`note-label ${isBlack?'black-note-label':'white-note-label'}`);label.textContent=config.label;svg.appendChild(label);
+  label.id=`label-${noteId}`;
+  label.setAttribute('x',x);
+  label.setAttribute('y',y);
+  label.setAttribute('class',`note-label ${isBlack?'black-note-label':'white-note-label'}`);
+  label.textContent=config.label;
+  svg.appendChild(label);
  });
 }
 
 createLabels();
-document.getElementById('voice-toggle').addEventListener('click',async function(){
- await ensureAudio();stopEverything();singingOn=!singingOn;this.setAttribute('aria-pressed',String(singingOn));this.textContent=singingOn?'Singing: On':'Singing: Off';
- document.getElementById('status').textContent=singingOn?'Singing is on: note plus complete spoken name.':'Singing is off: piano notes still play.';
+prepareVoices().catch(error=>{
+ document.getElementById('status').textContent=`Voice loading error: ${error.message}`;
+ document.getElementById('keyboard-wrapper').classList.remove('loading');
 });
-document.getElementById('piano-svg').addEventListener('pointerdown',event=>{event.preventDefault();if(event.target.classList.contains('key'))void playNote(event.target.id)});
+
+document.getElementById('voice-toggle').addEventListener('click',async function(){
+ if(audioCtx.state==='suspended')await audioCtx.resume();
+ stopCurrent();
+ singingOn=!singingOn;
+ this.setAttribute('aria-pressed',String(singingOn));
+ this.textContent=singingOn?'Singing: On':'Singing: Off';
+ document.getElementById('status').textContent=singingOn
+  ?'Singing is on: the pitch-matched voice and piano begin together.'
+  :'Singing is off: every key still plays its piano note.';
+});
+
+document.getElementById('piano-svg').addEventListener('pointerdown',event=>{
+ event.preventDefault();
+ if(event.target.classList.contains('key'))void playNote(event.target.id);
+});
 </script>
 </body>
 </html>

@@ -44,25 +44,24 @@ svg{filter:drop-shadow(0 4px 6px rgba(0,0,0,.05));touch-action:none}
 </svg>
 </div>
 </div>
-<script src="audio-data-1.js"></script>
-<script src="voices/Eflat4.js"></script>
-<script src="voices/E4.js"></script>
-<script src="voices/F4.js"></script>
-<script src="voices/Gpack.js"></script>
-<script src="voices/Apack.js"></script>
-<script src="voices/Bpack.js"></script>
-<script src="voices/C5.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/audio-data-1.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/Eflat4.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/E4.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/F4.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/Gpack.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/Apack.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/Bpack.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mattiaw/pianoplayer@4b7f7f736ebc9d65849da4968b1bfebbc0c8d32e/voices/C5.js"></script>
 <script>
 const AudioContextClass=window.AudioContext||window.webkitAudioContext;
 let audioCtx=null;
-const DecoderContextClass=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-const decoderCtx=new DecoderContextClass(1,1,16000);
 let singingOn=true;
 let activeNodes=[];
 let activeTimer=null;
 let playSequence=0;
 const voiceBuffers=new Map();
 let preparationPromise=null;
+let voicesAvailable=false;
 
 const notes={
 'key-C4':{frequency:261.63,label:'C',name:'C'},
@@ -87,27 +86,30 @@ function ensureContext(){
 
 function dataUriToArrayBuffer(uri){
  const comma=uri.indexOf(',');
+ if(comma<0)throw new Error('Invalid voice recording');
  const binary=atob(uri.slice(comma+1));
  const bytes=new Uint8Array(binary.length);
  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
  return bytes.buffer;
 }
 
-function prepareVoices(){
+async function prepareVoices(){
  if(preparationPromise)return preparationPromise;
  preparationPromise=(async()=>{
+  await ensureContext();
   const entries=Object.entries(window.sungLetterAudio||{});
-  if(entries.length!==13)throw new Error(`Expected 13 voices but found ${entries.length}.`);
+  if(entries.length!==13)throw new Error(`Expected 13 voices but found ${entries.length}. Check your internet connection.`);
   for(const [noteId,uri] of entries){
-   const buffer=await decoderCtx.decodeAudioData(dataUriToArrayBuffer(uri).slice(0));
+   const buffer=await audioCtx.decodeAudioData(dataUriToArrayBuffer(uri).slice(0));
    voiceBuffers.set(noteId,buffer);
   }
+  voicesAvailable=true;
   document.getElementById('status').textContent='Ready. Tap a key to hear its full tuned name.';
   return true;
  })().catch(error=>{
-  document.getElementById('status').textContent=`Voice loading failed: ${error.message}`;
-  preparationPromise=null;
-  throw error;
+  voicesAvailable=false;
+  document.getElementById('status').textContent=`Voice unavailable: ${error.message} Piano notes will still play.`;
+  return false;
  });
  return preparationPromise;
 }
@@ -145,7 +147,7 @@ function schedulePiano(noteId,when,duration,underVoice){
  osc1.frequency.setValueAtTime(frequency,when);
  osc2.frequency.setValueAtTime(frequency*2,when);
  harmonicGain.gain.value=underVoice?.10:.20;
- const peak=underVoice?.030:.24;
+ const peak=underVoice?.035:.24;
  master.gain.setValueAtTime(.0001,when);
  master.gain.exponentialRampToValueAtTime(peak,when+.006);
  master.gain.exponentialRampToValueAtTime(peak*.55,when+.075);
@@ -194,21 +196,24 @@ async function playNote(noteId){
  await ensureContext();
  stopCurrent();
  const sequence=playSequence;
+ const when=audioCtx.currentTime+.02;
  let duration=.58;
  if(singingOn){
-  try{await prepareVoices()}catch(_){return}
+  if(!voicesAvailable)await prepareVoices();
   if(sequence!==playSequence)return;
-  const when=audioCtx.currentTime+.025;
-  duration=scheduleVoice(noteId,when)||.58;
-  schedulePiano(noteId,when,duration,true);
-  showKey(noteId,duration,sequence);
-  document.getElementById('status').textContent=`${notes[noteId].name}: tuned voice and note together at ${notes[noteId].frequency.toFixed(2)} Hz`;
+  if(voicesAvailable){
+   duration=scheduleVoice(noteId,when)||.58;
+   schedulePiano(noteId,when,duration,true);
+   document.getElementById('status').textContent=`${notes[noteId].name}: tuned voice and note together at ${notes[noteId].frequency.toFixed(2)} Hz`;
+  }else{
+   schedulePiano(noteId,when,duration,false);
+   document.getElementById('status').textContent=`${notes[noteId].name}: piano note only because the voice files could not load`;
+  }
  }else{
-  const when=audioCtx.currentTime+.015;
   schedulePiano(noteId,when,duration,false);
-  showKey(noteId,duration,sequence);
   document.getElementById('status').textContent=`${notes[noteId].name}: piano note only`;
  }
+ showKey(noteId,duration,sequence);
 }
 
 function createLabels(){
@@ -229,7 +234,7 @@ function createLabels(){
 }
 
 createLabels();
-setTimeout(()=>{prepareVoices().catch(()=>{})},0);
+setTimeout(()=>{prepareVoices()},100);
 
 document.getElementById('voice-toggle').addEventListener('click',async function(){
  await ensureContext();
@@ -238,8 +243,8 @@ document.getElementById('voice-toggle').addEventListener('click',async function(
  this.setAttribute('aria-pressed',String(singingOn));
  this.textContent=singingOn?'Singing: On':'Singing: Off';
  document.getElementById('status').textContent=singingOn
-  ?'Singing is on: full tuned note names plus the matching note.'
-  :'Singing is off: the piano notes still play.';
+  ?'Singing is on. Voice and note will play together when the voice files are available.'
+  :'Singing is off. Piano notes still play.';
 });
 
 document.getElementById('piano-svg').addEventListener('pointerdown',event=>{

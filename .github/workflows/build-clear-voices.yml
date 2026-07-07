@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - scripts/build_clear_piano.py
+      - scripts/build_clear_piano_v5.py
       - .github/workflows/build-clear-voices.yml
   workflow_dispatch:
 
@@ -24,7 +25,7 @@ jobs:
           python -m pip install praat-parselmouth
 
       - name: Generate pitch-matched note names
-        run: python scripts/build_clear_piano.py
+        run: python scripts/build_clear_piano_v5.py
 
       - name: Make browser audio startup reliable
         run: |
@@ -62,6 +63,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated changes"
           else
-            git commit -m "Generate clear pitch-matched note names"
+            git commit -m "Generate corrected A and F voices"
             git push
           fi

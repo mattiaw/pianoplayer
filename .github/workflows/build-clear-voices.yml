@@ -26,6 +26,34 @@ jobs:
       - name: Generate pitch-matched note names
         run: python scripts/build_clear_piano.py
 
+      - name: Make browser audio startup reliable
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("index.html")
+          text = path.read_text(encoding="utf-8")
+
+          old_context = "function ensureContext(){if(!audioCtx)audioCtx=new AudioContextClass();return audioCtx.state==='suspended'?audioCtx.resume():Promise.resolve()}"
+          new_context = "function getContext(){if(!audioCtx)audioCtx=new AudioContextClass();return audioCtx}async function resumeContext(){const context=getContext();if(context.state==='suspended')await context.resume()}"
+
+          old_ready = "let readyPromise=(async()=>{await ensureContext();for(const [id,uri] of Object.entries(voiceData))decoded.set(id,await audioCtx.decodeAudioData(base64ToBuffer(uri).slice(0)));"
+          new_ready = "let readyPromise=(async()=>{getContext();for(const [id,uri] of Object.entries(voiceData))decoded.set(id,await audioCtx.decodeAudioData(base64ToBuffer(uri).slice(0)));"
+
+          old_play = "async function play(id){await ensureContext();stopCurrent();const token=sequence,when=audioCtx.currentTime+.015;let duration=.56;if(singing){await readyPromise;if(token!==sequence)return;duration=playVoice(id,when)||.56;status.textContent=notes[id].spoken+' — sung at '+notes[id].frequency.toFixed(2)+' Hz'}else{playPiano(id,when,duration);status.textContent=notes[id].spoken+' — piano note only'}showKey(id,duration,token)}"
+          new_play = "async function play(id){await resumeContext();stopCurrent();const token=sequence;let duration=.56;if(singing){await readyPromise;if(token!==sequence)return;const when=audioCtx.currentTime+.015;duration=playVoice(id,when)||.56;status.textContent=notes[id].spoken+' — sung at '+notes[id].frequency.toFixed(2)+' Hz'}else{const when=audioCtx.currentTime+.015;playPiano(id,when,duration);status.textContent=notes[id].spoken+' — piano note only'}showKey(id,duration,token)}"
+
+          old_toggle = "toggle.addEventListener('click',async()=>{await ensureContext();"
+          new_toggle = "toggle.addEventListener('click',async()=>{await resumeContext();"
+
+          for old, new in ((old_context, new_context), (old_ready, new_ready), (old_play, new_play), (old_toggle, new_toggle)):
+              if old not in text:
+                  raise SystemExit(f"Expected generated code was not found: {old[:70]}")
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
       - name: Commit generated piano
         run: |
           git config user.name "github-actions[bot]"

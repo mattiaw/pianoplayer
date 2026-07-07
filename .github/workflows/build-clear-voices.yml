@@ -5,6 +5,7 @@ on:
     paths:
       - scripts/build_clear_piano.py
       - scripts/build_clear_piano_v5.py
+      - scripts/build_clear_piano_v6.py
       - .github/workflows/build-clear-voices.yml
   workflow_dispatch:
 
@@ -24,8 +25,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install praat-parselmouth
 
-      - name: Generate pitch-matched note names
-        run: python scripts/build_clear_piano_v5.py
+      - name: Generate pitch-matched voices and songs
+        run: python scripts/build_clear_piano_v6.py
 
       - name: Make browser audio startup reliable
         run: |
@@ -63,6 +64,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated changes"
           else
-            git commit -m "Generate corrected A and F voices"
+            git commit -m "Add one-octave song buttons"
             git push
           fi

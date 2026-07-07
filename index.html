@@ -10,7 +10,7 @@ body{margin:0;padding:20px;display:flex;align-items:center;justify-content:cente
 #status{font-weight:700;color:#374151;min-height:1.4em;margin-bottom:10px}
 #version{font-size:.78rem;color:#6b7280;margin-top:10px}
 button{border:2px solid #111827;border-radius:999px;padding:8px 16px;font:inherit;font-weight:800;background:#e8f5e9;color:#166534;cursor:pointer}
-button[aria-pressed="false"]{background:#f3f4f6;color:#4b5563}
+button[aria-pressed="false"]{background:#f3f4f6;color:#4b5563}.song-controls{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px auto 4px;max-width:560px}.song-button,.stop-button{border-width:1px;padding:7px 12px;font-size:.92rem;background:#eef2ff;color:#3730a3}.song-button:hover,.song-button.playing{background:#c7d2fe}.stop-button{background:#fff1f2;color:#9f1239}
 .wrap{margin-top:20px;user-select:none;-webkit-user-select:none}
 svg{touch-action:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.05))}
 .key{cursor:pointer;stroke-width:1;transition:filter .04s ease}
@@ -23,7 +23,7 @@ svg{touch-action:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.05))}
 <body>
 <div id="app">
 <div id="status">Preparing clear pitch-matched voices…</div>
-<button id="toggle" aria-pressed="true">Singing: On</button>
+<button id="toggle" aria-pressed="true">Singing: On</button><div class="song-controls" aria-label="One-octave songs"><button class="song-button" data-song="twinkle">Twinkle Twinkle</button><button class="song-button" data-song="mary">Mary Had a Little Lamb</button><button class="song-button" data-song="ode">Ode to Joy</button><button class="song-button" data-song="jingle">Jingle Bells</button><button id="stop-song" class="stop-button">Stop Song</button></div>
 <div class="wrap"><svg id="piano" width="480" height="230" viewBox="0 0 480 230">
 <g>
 <rect id="C4" class="key C" x="0" y="0" width="60" height="220" rx="6"/>
@@ -43,7 +43,7 @@ svg{touch-action:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.05))}
 <rect id="Bb4" class="key black" x="342" y="0" width="36" height="130" rx="4"/>
 </g>
 </svg></div>
-<div id="version">Clear Voice v5 — real spoken names, dry audio</div>
+<div id="version">Clear Voice v6 — one-octave song buttons — real spoken names, dry audio</div>
 </div>
 <script>
 const AudioContextClass=window.AudioContext||window.webkitAudioContext;
@@ -54,12 +54,83 @@ const voiceData={"C4":"data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2Zj
 function getContext(){if(!audioCtx)audioCtx=new AudioContextClass();return audioCtx}async function resumeContext(){const context=getContext();if(context.state==='suspended')await context.resume()}
 function base64ToBuffer(uri){const comma=uri.indexOf(','),binary=atob(uri.slice(comma+1)),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return bytes.buffer}
 let readyPromise=(async()=>{getContext();for(const [id,uri] of Object.entries(voiceData))decoded.set(id,await audioCtx.decodeAudioData(base64ToBuffer(uri).slice(0)));status.textContent='Ready. Every full note name is clear and tuned to its key.'})().catch(error=>{status.textContent='Voice preparation failed. Piano-only mode still works.';console.error(error)});
-function stopCurrent(){sequence++;if(activeTimer)clearTimeout(activeTimer);activeTimer=null;activeSources.forEach(source=>{try{source.stop()}catch(_){}});activeSources=[];document.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.show').forEach(x=>x.classList.remove('show'))}
+function stopCurrent(){sequence++;songRun++;if(activeTimer)clearTimeout(activeTimer);activeTimer=null;activeSources.forEach(source=>{try{source.stop()}catch(_){}});activeSources=[];document.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.show').forEach(x=>x.classList.remove('show'))}
 function showKey(id,duration,token){const key=document.getElementById(id),label=document.getElementById('L'+id);key.classList.add('active');label.classList.add('show');activeTimer=setTimeout(()=>{if(token!==sequence)return;key.classList.remove('active');label.classList.remove('show')},duration*1000)}
 function playPiano(id,when,duration){const f=notes[id].frequency,g=audioCtx.createGain(),o1=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),h=audioCtx.createGain();o1.type='triangle';o2.type='sine';o1.frequency.setValueAtTime(f,when);o2.frequency.setValueAtTime(f*2,when);h.gain.value=.18;g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(.24,when+.006);g.gain.exponentialRampToValueAtTime(.13,when+.075);g.gain.setValueAtTime(.07,Math.max(when+.1,when+duration-.05));g.gain.exponentialRampToValueAtTime(.0001,when+duration);o1.connect(g);o2.connect(h);h.connect(g);g.connect(audioCtx.destination);o1.start(when);o2.start(when);o1.stop(when+duration+.02);o2.stop(when+duration+.02);activeSources.push(o1,o2)}
 function playVoice(id,when){const buffer=decoded.get(id);if(!buffer)return 0;const src=audioCtx.createBufferSource(),clarity=audioCtx.createBiquadFilter(),compressor=audioCtx.createDynamicsCompressor(),gain=audioCtx.createGain();src.buffer=buffer;clarity.type='peaking';clarity.frequency.value=2400;clarity.Q.value=.75;clarity.gain.value=2;compressor.threshold.value=-20;compressor.knee.value=8;compressor.ratio.value=2.5;compressor.attack.value=.002;compressor.release.value=.045;gain.gain.setValueAtTime(1,when);gain.gain.setValueAtTime(1,Math.max(when,when+buffer.duration-.025));gain.gain.exponentialRampToValueAtTime(.0001,when+buffer.duration);src.connect(clarity);clarity.connect(compressor);compressor.connect(gain);gain.connect(audioCtx.destination);src.start(when);src.stop(when+buffer.duration+.01);activeSources.push(src);return buffer.duration}
 async function play(id){await resumeContext();stopCurrent();const token=sequence;let duration=.56;if(singing){await readyPromise;if(token!==sequence)return;const when=audioCtx.currentTime+.015;duration=playVoice(id,when)||.56;status.textContent=notes[id].spoken+' — sung at '+notes[id].frequency.toFixed(2)+' Hz'}else{const when=audioCtx.currentTime+.015;playPiano(id,when,duration);status.textContent=notes[id].spoken+' — piano note only'}showKey(id,duration,token)}
+
+let songRun=0;
+const SONG_BPM=112;
+const songs={
+ twinkle:{title:'Twinkle Twinkle Little Star',notes:[
+  ['C4',1],['C4',1],['G4',1],['G4',1],['A4',1],['A4',1],['G4',2],
+  ['F4',1],['F4',1],['E4',1],['E4',1],['D4',1],['D4',1],['C4',2],
+  ['G4',1],['G4',1],['F4',1],['F4',1],['E4',1],['E4',1],['D4',2],
+  ['G4',1],['G4',1],['F4',1],['F4',1],['E4',1],['E4',1],['D4',2],
+  ['C4',1],['C4',1],['G4',1],['G4',1],['A4',1],['A4',1],['G4',2],
+  ['F4',1],['F4',1],['E4',1],['E4',1],['D4',1],['D4',1],['C4',2]
+ ]},
+ mary:{title:'Mary Had a Little Lamb',notes:[
+  ['E4',1],['D4',1],['C4',1],['D4',1],['E4',1],['E4',1],['E4',2],
+  ['D4',1],['D4',1],['D4',2],['E4',1],['G4',1],['G4',2],
+  ['E4',1],['D4',1],['C4',1],['D4',1],['E4',1],['E4',1],['E4',1],['E4',1],
+  ['D4',1],['D4',1],['E4',1],['D4',1],['C4',2]
+ ]},
+ ode:{title:'Ode to Joy',notes:[
+  ['E4',1],['E4',1],['F4',1],['G4',1],['G4',1],['F4',1],['E4',1],['D4',1],
+  ['C4',1],['C4',1],['D4',1],['E4',1],['E4',1.5],['D4',.5],['D4',2],
+  ['E4',1],['E4',1],['F4',1],['G4',1],['G4',1],['F4',1],['E4',1],['D4',1],
+  ['C4',1],['C4',1],['D4',1],['E4',1],['D4',1.5],['C4',.5],['C4',2]
+ ]},
+ jingle:{title:'Jingle Bells',notes:[
+  ['E4',1],['E4',1],['E4',2],['E4',1],['E4',1],['E4',2],
+  ['E4',1],['G4',1],['C4',1.5],['D4',.5],['E4',4],
+  ['F4',1],['F4',1],['F4',1.5],['F4',.5],['F4',1],['E4',1],['E4',1],['E4',.5],['E4',.5],
+  ['E4',1],['D4',1],['D4',1],['E4',1],['D4',2],['G4',2]
+ ]}
+};
+const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+function clearSongButtons(){document.querySelectorAll('.song-button.playing').forEach(button=>button.classList.remove('playing'))}
+function clearSongKey(id){const key=document.getElementById(id),label=document.getElementById('L'+id);if(key)key.classList.remove('active');if(label)label.classList.remove('show')}
+async function playSong(songId){
+ await resumeContext();
+ stopCurrent();
+ const run=++songRun;
+ const song=songs[songId];
+ if(!song)return;
+ clearSongButtons();
+ const button=document.querySelector(`[data-song="${songId}"]`);
+ if(button)button.classList.add('playing');
+ status.textContent=`Playing ${song.title} — watch the keys and letters.`;
+ const beatMs=60000/SONG_BPM;
+ for(const [id,beats] of song.notes){
+  if(run!==songRun)return;
+  const totalMs=beatMs*beats;
+  const duration=Math.max(.14,(totalMs*.86)/1000);
+  const when=audioCtx.currentTime+.012;
+  playPiano(id,when,duration);
+  const key=document.getElementById(id),label=document.getElementById('L'+id);
+  key.classList.add('active');
+  label.classList.add('show');
+  status.textContent=`${song.title}: ${notes[id].label}`;
+  await wait(totalMs*.86);
+  clearSongKey(id);
+  await wait(totalMs*.14);
+ }
+ if(run===songRun){
+  clearSongButtons();
+  activeSources=[];
+  status.textContent=`Finished ${song.title}.`;
+ }
+}
+function stopSong(){
+ stopCurrent();
+ clearSongButtons();
+ status.textContent='Song stopped.';
+}
+
 function makeLabels(){const svg=document.getElementById('piano');Object.entries(notes).forEach(([id,n])=>{const key=document.getElementById(id),black=key.classList.contains('black'),x=Number(key.getAttribute('x'))+Number(key.getAttribute('width'))/2,y=black?Number(key.getAttribute('height'))-28:Number(key.getAttribute('height'))-34,t=document.createElementNS('http://www.w3.org/2000/svg','text');t.id='L'+id;t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('class','label '+(black?'black-label':'white-label'));t.textContent=n.label;svg.appendChild(t)})}
-makeLabels();toggle.addEventListener('click',async()=>{await resumeContext();stopCurrent();singing=!singing;toggle.setAttribute('aria-pressed',String(singing));toggle.textContent=singing?'Singing: On':'Singing: Off';status.textContent=singing?'Singing is on: full tuned names.':'Singing is off: piano notes still play.'});piano.addEventListener('pointerdown',event=>{event.preventDefault();if(event.target.classList.contains('key'))void play(event.target.id)});
+makeLabels();document.querySelectorAll('.song-button').forEach(button=>button.addEventListener('click',()=>void playSong(button.dataset.song)));document.getElementById('stop-song').addEventListener('click',stopSong);toggle.addEventListener('click',async()=>{await resumeContext();stopCurrent();singing=!singing;toggle.setAttribute('aria-pressed',String(singing));toggle.textContent=singing?'Singing: On':'Singing: Off';status.textContent=singing?'Singing is on: full tuned names.':'Singing is off: piano notes still play.'});piano.addEventListener('pointerdown',event=>{event.preventDefault();if(event.target.classList.contains('key'))void play(event.target.id)});
 </script>
 </body></html>

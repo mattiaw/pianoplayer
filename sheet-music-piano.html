@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>One-Octave Piano with Sheet Music</title>
+<style>
+body{margin:0;padding:20px;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:system-ui,-apple-system,sans-serif}
+#app{width:min(1040px,100%);background:#fff;padding:28px;border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.07);text-align:center}
+#status{font-weight:700;color:#374151;min-height:1.4em;margin-bottom:12px}
+.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:14px}
+button{border:1px solid #111827;border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;background:#eef2ff;color:#3730a3;cursor:pointer}
+button:hover,button.playing{background:#c7d2fe}
+#stop-song{background:#fff1f2;color:#9f1239}
+#score-wrap{overflow-x:auto;overflow-y:hidden;border:1px solid #d1d5db;border-radius:14px;background:#fcfdff;padding:10px 0 8px;margin-bottom:20px;scroll-behavior:smooth}
+#score-svg{display:block;height:220px}
+.staff-line{stroke:#6b7280;stroke-width:1.4}
+.bar-line{stroke:#9ca3af;stroke-width:1.1}
+.notehead{fill:#111827;stroke:#111827;stroke-width:1.2}
+.notehead.open{fill:#fff}
+.note-stem,.ledger-line{stroke:#111827;stroke-width:1.5}
+.note-group.active .notehead{fill:#ef4444;stroke:#ef4444}
+.note-group.active .notehead.open{fill:#fff;stroke:#ef4444}
+.note-group.active .note-stem,.note-group.active .ledger-line,.note-group.active .accidental,.note-group.active .note-name{stroke:#ef4444;fill:#ef4444;color:#ef4444}
+.clef{font-size:62px;fill:#111827;font-family:'Times New Roman',serif}
+.accidental{font-size:24px;fill:#111827;font-family:'Times New Roman',serif}
+.note-name{font-size:13px;font-weight:700;fill:#4b5563}
+.wrap{margin-top:4px;user-select:none;-webkit-user-select:none}
+svg.piano{touch-action:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.05))}
+.key{cursor:pointer;stroke-width:1;transition:filter .04s ease}
+.C{fill:#ff4a4a;stroke:#c92a2a}.D{fill:#ff922b;stroke:#d9480f}.E{fill:#fcc419;stroke:#e67700}.F{fill:#51cf66;stroke:#2b8a3e}.G{fill:#37b24d;stroke:#2b8a3e}.A{fill:#339af0;stroke:#1864ab}.B{fill:#845ef7;stroke:#5f3dc4}
+.black{fill:#343a40;stroke:#212529}.key.active{filter:brightness(.76)}
+.key-label{pointer-events:none;opacity:0;font-weight:900;text-anchor:middle;dominant-baseline:middle;transition:opacity .02s linear}.key-label.show{opacity:1}
+.white-label{fill:#111827;font-size:28px}.black-label{fill:#fff;font-size:17px}
+#footer{font-size:.78rem;color:#6b7280;margin-top:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="status">Choose a song. The staff will highlight and scroll while the notes play.</div>
+  <div class="controls">
+    <button class="song-button" data-song="twinkle">Twinkle Twinkle</button>
+    <button class="song-button" data-song="mary">Mary Had a Little Lamb</button>
+    <button class="song-button" data-song="ode">Ode to Joy</button>
+    <button class="song-button" data-song="jingle">Jingle Bells</button>
+    <button id="stop-song">Stop Song</button>
+  </div>
+  <div id="score-wrap">
+    <svg id="score-svg" xmlns="http://www.w3.org/2000/svg" width="960" viewBox="0 0 960 220" aria-label="Sheet music"></svg>
+  </div>
+  <div class="wrap">
+    <svg id="piano" class="piano" width="480" height="230" viewBox="0 0 480 230" aria-label="One octave piano keyboard">
+      <g>
+        <rect id="C4" class="key C" x="0" y="0" width="60" height="220" rx="6"/>
+        <rect id="D4" class="key D" x="60" y="0" width="60" height="220" rx="6"/>
+        <rect id="E4" class="key E" x="120" y="0" width="60" height="220" rx="6"/>
+        <rect id="F4" class="key F" x="180" y="0" width="60" height="220" rx="6"/>
+        <rect id="G4" class="key G" x="240" y="0" width="60" height="220" rx="6"/>
+        <rect id="A4" class="key A" x="300" y="0" width="60" height="220" rx="6"/>
+        <rect id="B4" class="key B" x="360" y="0" width="60" height="220" rx="6"/>
+        <rect id="C5" class="key C" x="420" y="0" width="60" height="220" rx="6"/>
+      </g>
+      <g>
+        <rect id="Db4" class="key black" x="42" y="0" width="36" height="130" rx="4"/>
+        <rect id="Eb4" class="key black" x="102" y="0" width="36" height="130" rx="4"/>
+        <rect id="Gb4" class="key black" x="222" y="0" width="36" height="130" rx="4"/>
+        <rect id="Ab4" class="key black" x="282" y="0" width="36" height="130" rx="4"/>
+        <rect id="Bb4" class="key black" x="342" y="0" width="36" height="130" rx="4"/>
+      </g>
+    </svg>
+  </div>
+  <div id="footer">Sheet Music v1 — classical treble staff with scrolling note highlight</div>
+</div>
+<script>
+const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null;
+let activeNodes=[];
+let playToken=0;
+const BPM=112;
+const STAFF_TOP=54;
+const STAFF_SPACING=18;
+const NOTE_SPACING=44;
+const START_X=92;
+const TOP_PAD=18;
+const scoreWrap=document.getElementById('score-wrap');
+const scoreSvg=document.getElementById('score-svg');
+const statusEl=document.getElementById('status');
+const buttonEls=[...document.querySelectorAll('.song-button')];
+const ns='http://www.w3.org/2000/svg';
+
+const notes={
+  C4:{frequency:261.63,label:'C',y:STAFF_TOP+STAFF_SPACING*5,base:'C',accidental:''},
+  Db4:{frequency:277.18,label:'D♭',y:STAFF_TOP+STAFF_SPACING*4.5,base:'D',accidental:'♭'},
+  D4:{frequency:293.66,label:'D',y:STAFF_TOP+STAFF_SPACING*4.5,base:'D',accidental:''},
+  Eb4:{frequency:311.13,label:'E♭',y:STAFF_TOP+STAFF_SPACING*4,base:'E',accidental:'♭'},
+  E4:{frequency:329.63,label:'E',y:STAFF_TOP+STAFF_SPACING*4,base:'E',accidental:''},
+  F4:{frequency:349.23,label:'F',y:STAFF_TOP+STAFF_SPACING*3.5,base:'F',accidental:''},
+  Gb4:{frequency:369.99,label:'G♭',y:STAFF_TOP+STAFF_SPACING*3,base:'G',accidental:'♭'},
+  G4:{frequency:392.0,label:'G',y:STAFF_TOP+STAFF_SPACING*3,base:'G',accidental:''},
+  Ab4:{frequency:415.3,label:'A♭',y:STAFF_TOP+STAFF_SPACING*2.5,base:'A',accidental:'♭'},
+  A4:{frequency:440.0,label:'A',y:STAFF_TOP+STAFF_SPACING*2.5,base:'A',accidental:''},
+  Bb4:{frequency:466.16,label:'B♭',y:STAFF_TOP+STAFF_SPACING*2,base:'B',accidental:'♭'},
+  B4:{frequency:493.88,label:'B',y:STAFF_TOP+STAFF_SPACING*2,base:'B',accidental:''},
+  C5:{frequency:523.25,label:'C',y:STAFF_TOP+STAFF_SPACING*1.5,base:'C',accidental:''}
+};
+
+const songs={
+  twinkle:{title:'Twinkle Twinkle Little Star',notes:[
+    ['C4',1],['C4',1],['G4',1],['G4',1],['A4',1],['A4',1],['G4',2],
+    ['F4',1],['F4',1],['E4',1],['E4',1],['D4',1],['D4',1],['C4',2],
+    ['G4',1],['G4',1],['F4',1],['F4',1],['E4',1],['E4',1],['D4',2],
+    ['G4',1],['G4',1],['F4',1],['F4',1],['E4',1],['E4',1],['D4',2],
+    ['C4',1],['C4',1],['G4',1],['G4',1],['A4',1],['A4',1],['G4',2],
+    ['F4',1],['F4',1],['E4',1],['E4',1],['D4',1],['D4',1],['C4',2]
+  ]},
+  mary:{title:'Mary Had a Little Lamb',notes:[
+    ['E4',1],['D4',1],['C4',1],['D4',1],['E4',1],['E4',1],['E4',2],
+    ['D4',1],['D4',1],['D4',2],['E4',1],['G4',1],['G4',2],
+    ['E4',1],['D4',1],['C4',1],['D4',1],['E4',1],['E4',1],['E4',1],['E4',1],
+    ['D4',1],['D4',1],['E4',1],['D4',1],['C4',2]
+  ]},
+  ode:{title:'Ode to Joy',notes:[
+    ['E4',1],['E4',1],['F4',1],['G4',1],['G4',1],['F4',1],['E4',1],['D4',1],
+    ['C4',1],['C4',1],['D4',1],['E4',1],['E4',1.5],['D4',.5],['D4',2],
+    ['E4',1],['E4',1],['F4',1],['G4',1],['G4',1],['F4',1],['E4',1],['D4',1],
+    ['C4',1],['C4',1],['D4',1],['E4',1],['D4',1.5],['C4',.5],['C4',2]
+  ]},
+  jingle:{title:'Jingle Bells',notes:[
+    ['E4',1],['E4',1],['E4',2],['E4',1],['E4',1],['E4',2],
+    ['E4',1],['G4',1],['C4',1.5],['D4',.5],['E4',4],
+    ['F4',1],['F4',1],['F4',1.5],['F4',.5],['F4',1],['E4',1],['E4',1],['E4',.5],['E4',.5],
+    ['E4',1],['D4',1],['D4',1],['E4',1],['D4',2],['G4',2]
+  ]}
+};
+
+function ensureContext(){
+  if(!audioCtx) audioCtx=new AudioContextClass();
+  return audioCtx.state==='suspended'?audioCtx.resume():Promise.resolve();
+}
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function svgEl(tag,attrs={}){const el=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);return el;}
+function clearPlayingButtons(){buttonEls.forEach(button=>button.classList.remove('playing'));}
+function stopSound(){activeNodes.forEach(node=>{try{node.stop();}catch(_){}});activeNodes=[];}
+function clearVisuals(){
+  document.querySelectorAll('.note-group.active').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.key.active').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.key-label.show').forEach(el=>el.classList.remove('show'));
+}
+function stopSong(){playToken++;stopSound();clearVisuals();clearPlayingButtons();statusEl.textContent='Song stopped.';}
+function playPiano(noteId,duration){
+  if(!audioCtx)return;
+  const when=audioCtx.currentTime+.01;
+  const freq=notes[noteId].frequency;
+  const main=audioCtx.createOscillator();
+  const harm=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  const harmGain=audioCtx.createGain();
+  main.type='triangle';
+  harm.type='sine';
+  main.frequency.setValueAtTime(freq,when);
+  harm.frequency.setValueAtTime(freq*2,when);
+  harmGain.gain.value=.2;
+  gain.gain.setValueAtTime(.0001,when);
+  gain.gain.exponentialRampToValueAtTime(.25,when+.008);
+  gain.gain.exponentialRampToValueAtTime(.13,when+.08);
+  gain.gain.setValueAtTime(.08,Math.max(when+.1,when+duration-.06));
+  gain.gain.exponentialRampToValueAtTime(.0001,when+duration);
+  main.connect(gain);harm.connect(harmGain);harmGain.connect(gain);gain.connect(audioCtx.destination);
+  main.start(when);harm.start(when);main.stop(when+duration+.03);harm.stop(when+duration+.03);
+  activeNodes.push(main,harm);
+}
+function activateKey(noteId){
+  const key=document.getElementById(noteId);if(key)key.classList.add('active');
+  const label=document.getElementById('K'+noteId);if(label)label.classList.add('show');
+}
+function deactivateKey(noteId){
+  const key=document.getElementById(noteId);if(key)key.classList.remove('active');
+  const label=document.getElementById('K'+noteId);if(label)label.classList.remove('show');
+}
+function scrollToNote(index){
+  const el=document.getElementById('N'+index);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+function durationGlyph(duration){
+  if(duration>=2) return {open:true,stem:false};
+  return {open:false,stem:true};
+}
+function buildScore(song){
+  scoreSvg.innerHTML='';
+  let totalBeats=0;
+  song.notes.forEach(([,beats])=>{totalBeats+=beats;});
+  const width=Math.max(960,START_X+song.notes.length*NOTE_SPACING+110);
+  scoreSvg.setAttribute('width',width);
+  scoreSvg.setAttribute('viewBox',`0 0 ${width} 220`);
+
+  const title=svgEl('text',{x:22,y:24,fill:'#111827','font-size':'18','font-weight':'700'});
+  title.textContent=song.title;
+  scoreSvg.appendChild(title);
+
+  for(let i=0;i<5;i++){
+    const y=STAFF_TOP+i*STAFF_SPACING;
+    scoreSvg.appendChild(svgEl('line',{x1:20,y1:y,x2:width-24,y2:y,class:'staff-line'}));
+  }
+
+  const clef=svgEl('text',{x:26,y:STAFF_TOP+58,class:'clef'});
+  clef.textContent='𝄞';
+  scoreSvg.appendChild(clef);
+
+  let beatCounter=0;
+  song.notes.forEach(([noteId,beats],index)=>{
+    const x=START_X+index*NOTE_SPACING;
+    const note=notes[noteId];
+    const group=svgEl('g',{class:'note-group',id:'N'+index,'data-note':noteId});
+    const rhythm=durationGlyph(beats);
+
+    if(noteId==='C4'){
+      group.appendChild(svgEl('line',{x1:x-14,y1:note.y,x2:x+14,y2:note.y,class:'ledger-line'}));
+    }
+    if(note.accidental){
+      const accidental=svgEl('text',{x:x-20,y:note.y+7,class:'accidental'});
+      accidental.textContent=note.accidental;
+      group.appendChild(accidental);
+    }
+    group.appendChild(svgEl('ellipse',{cx:x,cy:note.y,rx:10,ry:7,transform:`rotate(-20 ${x} ${note.y})`,class:rhythm.open?'notehead open':'notehead'}));
+    if(rhythm.stem){
+      group.appendChild(svgEl('line',{x1:x+9,y1:note.y-1,x2:x+9,y2:note.y-34,class:'note-stem'}));
+    }
+    const noteName=svgEl('text',{x:x,y:176,class:'note-name'});
+    noteName.textContent=note.label;
+    group.appendChild(noteName);
+    scoreSvg.appendChild(group);
+
+    beatCounter+=beats;
+    if(index<song.notes.length-1 && Math.abs(beatCounter%4)<0.001){
+      scoreSvg.appendChild(svgEl('line',{x1:x+22,y1:STAFF_TOP,x2:x+22,y2:STAFF_TOP+STAFF_SPACING*4,class:'bar-line'}));
+    }
+  });
+}
+function makeKeyLabels(){
+  const piano=document.getElementById('piano');
+  Object.entries(notes).forEach(([id,note])=>{
+    const key=document.getElementById(id);
+    const x=Number(key.getAttribute('x'))+Number(key.getAttribute('width'))/2;
+    const y=key.classList.contains('black')?Number(key.getAttribute('height'))-28:Number(key.getAttribute('height'))-34;
+    const text=svgEl('text',{id:'K'+id,x,y,class:'key-label '+(key.classList.contains('black')?'black-label':'white-label')});
+    text.textContent=note.label;
+    piano.appendChild(text);
+  });
+}
+async function playNoteManually(noteId){
+  await ensureContext();
+  playToken++;
+  stopSound();
+  clearVisuals();
+  activateKey(noteId);
+  playPiano(noteId,.52);
+  statusEl.textContent=`${notes[noteId].label} played.`;
+  setTimeout(()=>deactivateKey(noteId),520);
+}
+async function playSong(songId){
+  await ensureContext();
+  stopSong();
+  const token=++playToken;
+  const song=songs[songId];
+  if(!song)return;
+  buildScore(song);
+  clearPlayingButtons();
+  const activeButton=document.querySelector(`.song-button[data-song="${songId}"]`);
+  if(activeButton)activeButton.classList.add('playing');
+  statusEl.textContent=`Playing ${song.title}.`;
+  const beatMs=60000/BPM;
+  for(let index=0;index<song.notes.length;index++){
+    if(token!==playToken)return;
+    const [noteId,beats]=song.notes[index];
+    const totalMs=beatMs*beats;
+    const soundDuration=Math.max(.18,totalMs*.86/1000);
+    const noteGroup=document.getElementById('N'+index);
+    clearVisuals();
+    if(noteGroup)noteGroup.classList.add('active');
+    activateKey(noteId);
+    scrollToNote(index);
+    playPiano(noteId,soundDuration);
+    statusEl.textContent=`${song.title}: ${notes[noteId].label}`;
+    await wait(totalMs*.86);
+    deactivateKey(noteId);
+    if(noteGroup)noteGroup.classList.remove('active');
+    await wait(totalMs*.14);
+  }
+  if(token===playToken){
+    clearPlayingButtons();
+    statusEl.textContent=`Finished ${song.title}.`;
+  }
+}
+
+makeKeyLabels();
+buildScore(songs.twinkle);
+buttonEls.forEach(button=>button.addEventListener('click',()=>void playSong(button.dataset.song)));
+document.getElementById('stop-song').addEventListener('click',stopSong);
+document.getElementById('piano').addEventListener('pointerdown',event=>{event.preventDefault();if(event.target.classList.contains('key'))void playNoteManually(event.target.id);});
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>One-Octave Piano v18</title>
+<style>
+html,body{margin:0;height:100%;background:#f0f4f8;font-family:system-ui,-apple-system,sans-serif}
+.v18-bar{box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:6px 10px;background:#111827;color:white;font-weight:800}
+.v18-bar button{border:1px solid #fff;border-radius:999px;padding:7px 14px;font:inherit;font-weight:900;background:#dcfce7;color:#166534;cursor:pointer}
+.v18-bar button:hover{background:#bbf7d0}
+.v18-note{font-size:.86rem;color:#d1d5db}
+iframe{display:block;width:100%;height:calc(100vh - 46px);border:0;background:#f0f4f8}
+</style>
+</head>
+<body>
+<div class="v18-bar"><button id="play-last-three">Play Last 3 Notes</button><span class="v18-note">v18 practice button. Main app remains below.</span></div>
+<iframe id="piano-frame" src="sheet-music-piano-v17.html" title="One-octave piano v17 with v18 last-three controller"></iframe>
+<script>
+const frame=document.getElementById('piano-frame');
+document.getElementById('play-last-three').addEventListener('click',()=>{
+  const win=frame.contentWindow;
+  if(!win){alert('The piano is still loading.');return;}
+  try{
+    win.eval(`(async()=>{
+      if(!currentEntries||!currentEntries.length){statusEl.textContent='No notes on the staff to play.';return;}
+      await ensureContext();
+      playToken++;
+      stopSound();
+      clearVisuals();
+      clearPlayingButtons();
+      const token=++playToken;
+      const start=Math.max(0,currentEntries.length-3);
+      const list=currentEntries.slice(start);
+      statusEl.textContent='Playing last '+list.length+' note'+(list.length===1?'':'s')+'.';
+      for(let i=0;i<list.length;i++){
+        if(token!==playToken)return;
+        const index=start+i;
+        const id=list[i][0];
+        const d=list[i][1];
+        const totalMs=beatMs()*d;
+        const soundDuration=Math.max(.12,totalMs*.86/1000);
+        const noteGroup=document.getElementById('N'+index);
+        clearVisuals();
+        if(noteGroup)noteGroup.classList.add('active');
+        activateKey(id);
+        scrollToNote(index);
+        playPiano(id,soundDuration);
+        statusEl.textContent='Last 3 notes: '+visibleName(id)+' ('+durationName(d)+')';
+        await wait(totalMs*.86);
+        deactivateKey(id);
+        if(noteGroup)noteGroup.classList.remove('active');
+        await wait(totalMs*.14);
+      }
+      if(token===playToken){clearPlayingButtons();statusEl.textContent='Finished playing the last '+list.length+' note'+(list.length===1?'':'s')+'.';}
+    })()`);
+  }catch(err){
+    alert('Could not reach the piano page yet. Reload and try again.');
+  }
+});
+</script>
+</body>
+</html>
